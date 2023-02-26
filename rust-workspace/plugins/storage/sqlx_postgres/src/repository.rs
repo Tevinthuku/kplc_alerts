@@ -9,6 +9,7 @@ lazy_static! {
     static ref DB_URL: String = "postgres://postgres:postgres@localhost/blackout".to_string();
 }
 
+#[derive(Clone)]
 pub struct Repository {
     pg_pool: Arc<PgPool>,
 }
