@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
-use subscriptions::subscriber::SubscriberId;
+use subscriber::subscriber::details::SubscriberExternalId;
 use uuid::Uuid;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Deserialize)]
@@ -60,7 +60,7 @@ impl From<String> for ExternalId {
 pub trait Actor: Send + Sync {
     fn permissions(&self) -> Permissions;
 
-    fn external_id(&self) -> ExternalId;
+    fn external_id(&self) -> Result<SubscriberExternalId, String>;
 
     fn check_for_permission(&self, permission: Permission) -> anyhow::Result<()> {
         match self.permissions().contains(permission) {

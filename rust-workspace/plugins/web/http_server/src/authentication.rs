@@ -9,6 +9,7 @@ use lazy_static::lazy_static;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
+use subscriber::subscriber::details::SubscriberExternalId;
 use use_cases::actor::{Actor, ExternalId, Permissions};
 
 lazy_static! {
@@ -102,7 +103,7 @@ impl Actor for AuthenticatedUserInfo {
         permissions.into()
     }
 
-    fn external_id(&self) -> ExternalId {
-        self.claims.sub.clone().into()
+    fn external_id(&self) -> Result<SubscriberExternalId, String> {
+        self.claims.sub.clone().try_into()
     }
 }

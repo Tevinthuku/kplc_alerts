@@ -10,7 +10,7 @@ anyhow = "1.0.69"
 async-trait = "0.1.64"
 chrono = "0.4.23"
 chrono-tz = "0.8.1"
-subscriptions = { path = "../subscriber" }
+subscriber = { path = "../subscriber" }
 thiserror = "1.0.38"
 power_interuptions = { path = "../power_interuptions" }
 url = "2.3.1"
