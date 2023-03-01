@@ -27,3 +27,26 @@ impl SubscriberAuthenticationRepo for Repository {
         .map(|_| ())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::repository::Repository;
+    use subscriber::subscriber::details::{
+        SubscriberDetails, SubscriberEmail, SubscriberExternalId, SubscriberName,
+    };
+    use use_cases::authentication::SubscriberAuthenticationRepo;
+
+    #[tokio::test]
+    async fn test_that_create_subscriber_works() {
+        let subscriber_details = SubscriberDetails {
+            name: SubscriberName::try_from("test_user".to_string()).unwrap(),
+            email: SubscriberEmail::try_from("test_user@gmail.com".to_string()).unwrap(),
+            external_id: SubscriberExternalId::try_from("external|id".to_string()).unwrap(),
+        };
+        let repo = Repository::new_test_repo().await;
+
+        let result = repo.create_or_update_subscriber(subscriber_details).await;
+
+        assert!(result.is_ok())
+    }
+}
