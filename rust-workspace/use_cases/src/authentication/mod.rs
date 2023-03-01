@@ -3,15 +3,17 @@ pub mod subscriber_authentication;
 use crate::actor::{Actor, ExternalId};
 use anyhow::anyhow;
 use async_trait::async_trait;
+#[cfg(test)]
+use mockall::automock;
 use std::sync::Arc;
 use subscriber::subscriber::details::{SubscriberDetails, SubscriberExternalId};
-
 #[derive(Debug)]
 pub struct SubscriberDetailsInput {
     pub name: String,
     pub email: String,
 }
 
+#[cfg_attr(test, automock)]
 #[async_trait]
 pub trait SubscriberAuthenticationRepo: Send + Sync {
     async fn create_or_update_subscriber(
@@ -38,13 +40,16 @@ impl AuthenticationInteractor for AuthenticationInteractorImpl {
     async fn authenticate(
         &self,
         actor: &dyn Actor,
-        user: SubscriberDetailsInput,
+        subscriber: SubscriberDetailsInput,
     ) -> anyhow::Result<()> {
-        let external_id = actor.external_id().map_err(|err| anyhow!("{err}"))?;
+        let external_id = actor.external_id();
 
         let details = SubscriberDetails {
-            name: user.name.try_into().map_err(|err| anyhow!("{err}"))?,
-            email: user.email.try_into().map_err(|err| anyhow!("{err}"))?,
+            name: subscriber.name.try_into().map_err(|err| anyhow!("{err}"))?,
+            email: subscriber
+                .email
+                .try_into()
+                .map_err(|err| anyhow!("{err}"))?,
             external_id,
         };
 
@@ -55,5 +60,87 @@ impl AuthenticationInteractor for AuthenticationInteractorImpl {
 impl AuthenticationInteractorImpl {
     pub fn new(repo: Arc<dyn SubscriberAuthenticationRepo>) -> Self {
         Self { repo }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::actor::MockActor;
+    use crate::actor::{Actor, Permissions};
+    use crate::authentication::MockSubscriberAuthenticationRepo;
+    use crate::authentication::{
+        AuthenticationInteractor, AuthenticationInteractorImpl, SubscriberAuthenticationRepo,
+        SubscriberDetailsInput,
+    };
+    use async_trait::async_trait;
+    use std::sync::Arc;
+    use subscriber::subscriber::details::{SubscriberDetails, SubscriberExternalId};
+
+    fn mock_actor() -> MockActor {
+        let mut mock_actor = MockActor::new();
+        mock_actor
+            .expect_external_id()
+            .returning(|| SubscriberExternalId::try_from("auth|external_id".to_string()).unwrap());
+        mock_actor
+    }
+
+    #[tokio::test]
+    async fn test_that_invalid_email_is_not_submitted() {
+        let mock_repo = MockSubscriberAuthenticationRepo::new();
+        let mock_actor = mock_actor();
+        let interactor = AuthenticationInteractorImpl::new(Arc::new(mock_repo));
+
+        let result = interactor
+            .authenticate(
+                &mock_actor,
+                SubscriberDetailsInput {
+                    name: "Tevin".to_string(),
+                    email: "just-an-email.com".to_string(),
+                },
+            )
+            .await;
+        assert!(result.is_err())
+    }
+
+    #[tokio::test]
+    async fn test_subscriber_is_not_authenticated_with_empty_name() {
+        let mock_repo = MockSubscriberAuthenticationRepo::new();
+        let mock_actor = mock_actor();
+
+        let interactor = AuthenticationInteractorImpl::new(Arc::new(mock_repo));
+
+        let result = interactor
+            .authenticate(
+                &mock_actor,
+                SubscriberDetailsInput {
+                    name: "".to_string(),
+                    email: "blackouts.dev@gmail.com".to_string(),
+                },
+            )
+            .await;
+        assert!(result.is_err())
+    }
+
+    #[tokio::test]
+    async fn test_subscriber_is_authenticated_if_details_are_valid() {
+        let mut mock_repo = MockSubscriberAuthenticationRepo::new();
+        mock_repo
+            .expect_create_or_update_subscriber()
+            .returning(|_| Ok(()));
+        let mock_actor = mock_actor();
+
+        let interactor = AuthenticationInteractorImpl::new(Arc::new(mock_repo));
+
+        let result = interactor
+            .authenticate(
+                &mock_actor,
+                SubscriberDetailsInput {
+                    name: "Blackouts Subscriber".to_string(),
+                    email: "blackouts.dev@gmail.com".to_string(),
+                },
+            )
+            .await;
+        assert!(result.is_ok())
     }
 }
