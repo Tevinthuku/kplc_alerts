@@ -21,10 +21,10 @@ impl SaveBlackOutsRepo for Repository {
         data: &power_interuptions::location::ImportInput,
     ) -> anyhow::Result<()> {
         let counties = self.get_counties().await?;
-        let results: FuturesUnordered<_> = data
+        let mut results: FuturesUnordered<_> = data
             .0
             .iter()
-            .map(|(url, regions)| self.save_regions(url, regions, &counties))
+            .map(|(url, regions)| self.save_regions_data(url, regions, &counties))
             .collect();
 
         todo!()
@@ -32,7 +32,7 @@ impl SaveBlackOutsRepo for Repository {
 }
 
 impl Repository {
-    async fn save_regions(
+    async fn save_regions_data(
         &self,
         url: &Url,
         regions: &[Region],
@@ -53,29 +53,32 @@ impl Repository {
 
         let source = SourceFile::save(&mut transaction, url).await?;
 
-        // TODO: Flatten the counties area list
+        let county_ids_with_areas = counties
+            .into_iter()
+            .flat_map(|(county_id, county)| {
+                county.areas.into_iter().map(move |area| (county_id, area))
+            })
+            .collect::<Vec<_>>();
 
-        for (county_id, county) in counties.into_iter() {
-            let areas = AreaWithId::save_many(&mut transaction, county_id, county.areas)
-                .await
-                .context("Failed to save & return areas")?;
+        let areas = AreaWithId::save_many(&mut transaction, county_ids_with_areas)
+            .await
+            .context("Failed to save & return areas")?;
 
-            BlackoutSchedule::save_many(&mut transaction, source.id, &areas).await?;
+        BlackoutSchedule::save_many(&mut transaction, source.id, &areas).await?;
 
-            let lines = areas
-                .iter()
-                .flat_map(|data| {
-                    data.area.locations.iter().map(|line| DbLine {
-                        area_id: data.id,
-                        name: line.clone(),
-                    })
+        let lines = areas
+            .iter()
+            .flat_map(|data| {
+                data.area.locations.iter().map(|line| DbLine {
+                    area_id: data.id,
+                    name: line.clone(),
                 })
-                .collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
-            DbLine::save_many(&mut transaction, lines)
-                .await
-                .context("Failed to save lines")?;
-        }
+        DbLine::save_many(&mut transaction, lines)
+            .await
+            .context("Failed to save lines")?;
 
         todo!()
     }
@@ -114,16 +117,13 @@ struct AreaWithId {
 impl AreaWithId {
     async fn save_many(
         transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-        county_id: DbCountyId,
-        areas: Vec<Area<FutureOrCurrentNairobiTZDateTime>>,
+        county_id_with_areas: Vec<(DbCountyId, Area<FutureOrCurrentNairobiTZDateTime>)>,
     ) -> Result<Vec<AreaWithId>, sqlx::Error> {
-        let area_names = areas
+        let (area_names, county_ids): (Vec<_>, Vec<_>) = county_id_with_areas
             .iter()
-            .map(|area| area.name.clone())
-            .collect::<Vec<_>>();
-        let county_ids = iter::repeat(county_id.into_inner())
-            .take(area_names.len())
-            .collect::<Vec<_>>();
+            .map(|(id, area)| (area.name.clone(), id.into_inner()))
+            .unzip();
+
         sqlx::query!(
             "
             INSERT INTO location.area(name, county_id)
@@ -144,9 +144,9 @@ impl AreaWithId {
             .into_iter()
             .map(|record| (record.name, record.id))
             .collect::<HashMap<_, _>>();
-        Ok(areas
+        Ok(county_id_with_areas
             .into_iter()
-            .filter_map(|area| {
+            .filter_map(|(_id, area)| {
                 mapping_of_area_name_to_id
                     .get(&area.name)
                     .map(|id| AreaWithId { id: *id, area })
