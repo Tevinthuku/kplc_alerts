@@ -53,6 +53,8 @@ impl Repository {
 
         let source = SourceFile::save(&mut transaction, url).await?;
 
+        // TODO: Flatten the counties area list
+
         for (county_id, county) in counties.into_iter() {
             let areas = AreaWithId::save_many(&mut transaction, county_id, county.areas)
                 .await
