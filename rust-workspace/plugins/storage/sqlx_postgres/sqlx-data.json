@@ -1,5 +1,18 @@
 {
   "db": "PostgreSQL",
+  "42c7e18d1c75c2eb878dd061c158122c093001d9fd276492fefd2629298405ca": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "TextArray",
+          "UuidArray"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO location.line(name, area_id)\n            SELECT * FROM UNNEST($1::text[], $2::uuid[]) ON CONFLICT DO NOTHING\n            "
+  },
   "4cb191d7ba6ea49126490d63e16a39cf7862337666f55b6c810f3120b5630e12": {
     "describe": {
       "columns": [],

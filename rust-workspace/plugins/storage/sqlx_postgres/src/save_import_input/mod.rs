@@ -1,7 +1,7 @@
 mod counties;
 use anyhow::Context;
 use sqlx::query;
-use std::iter;
+use std::{collections::HashMap, iter};
 
 use crate::repository::Repository;
 use crate::save_import_input::counties::{DbCounty, DbCountyId};
@@ -23,7 +23,7 @@ impl SaveBlackOutsRepo for Repository {
         let results: FuturesUnordered<_> = data
             .0
             .iter()
-            .map(|(url, regions)| self.save_file_regions(url, regions, &counties))
+            .map(|(url, regions)| self.save_regions(url, regions, &counties))
             .collect();
 
         todo!()
@@ -31,7 +31,7 @@ impl SaveBlackOutsRepo for Repository {
 }
 
 impl Repository {
-    async fn save_file_regions(
+    async fn save_regions(
         &self,
         url: &Url,
         regions: &[Region],
@@ -43,23 +43,48 @@ impl Repository {
             .map(|county| {
                 DbCounty::resolve_county_id(&counties, &county.name).map(|id| (id, county))
             })
-            .collect::<Result<Vec<_>, _>>();
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut transaction = self
+            .pool()
+            .begin()
+            .await
+            .context("Failed to begin transaction")?;
+
+        for (county_id, county) in counties.into_iter() {
+            let areas = AreaWithId::save_many(&mut transaction, county_id, county.areas)
+                .await
+                .context("Failed to save & return areas")?;
+
+            let lines = areas
+                .iter()
+                .flat_map(|data| {
+                    data.area.locations.iter().map(|line| DbLine {
+                        area_id: data.id,
+                        name: line.clone(),
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            DbLine::save_many(&mut transaction, lines)
+                .await
+                .context("Failed to save lines")?;
+        }
+
         todo!()
     }
 }
 
-struct DbArea {
+struct AreaWithId {
     id: Uuid,
-    name: String,
-    county_id: DbCountyId,
+    area: Area<FutureOrCurrentNairobiTZDateTime>,
 }
 
-impl DbArea {
+impl AreaWithId {
     async fn save_many(
         transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         county_id: DbCountyId,
         areas: Vec<Area<FutureOrCurrentNairobiTZDateTime>>,
-    ) -> Result<(), sqlx::Error> {
+    ) -> Result<Vec<AreaWithId>, sqlx::Error> {
         let area_names = areas
             .iter()
             .map(|area| area.name.clone())
@@ -77,14 +102,53 @@ impl DbArea {
         )
         .execute(&mut *transaction)
         .await?;
-        let areas = query!(
+        let inserted_areas = query!(
             "SELECT * FROM location.area WHERE name = ANY($1)",
             &area_names[..]
         )
         .fetch_all(&mut *transaction)
         .await?;
+        let mapping_of_area_name_to_id = inserted_areas
+            .into_iter()
+            .map(|record| (record.name, record.id))
+            .collect::<HashMap<_, _>>();
+        Ok(areas
+            .into_iter()
+            .filter_map(|area| {
+                mapping_of_area_name_to_id
+                    .get(&area.name)
+                    .map(|id| AreaWithId { id: *id, area })
+            })
+            .collect::<Vec<_>>())
+    }
+}
 
-        for area in areas {}
+struct DbLine {
+    area_id: Uuid,
+    name: String,
+}
+
+impl DbLine {
+    async fn save_many(
+        transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        lines: Vec<DbLine>,
+    ) -> Result<(), sqlx::Error> {
+        let line_names = lines
+            .iter()
+            .map(|line| line.name.clone())
+            .collect::<Vec<_>>();
+        let line_area_ids = lines.iter().map(|line| line.area_id).collect::<Vec<_>>();
+
+        sqlx::query!(
+            "
+            INSERT INTO location.line(name, area_id)
+            SELECT * FROM UNNEST($1::text[], $2::uuid[]) ON CONFLICT DO NOTHING
+            ",
+            &line_names[..],
+            &line_area_ids[..]
+        )
+        .execute(&mut *transaction)
+        .await?;
 
         Ok(())
     }
