@@ -1,7 +1,7 @@
 use crate::scanner::{Date, Time};
 use chrono::{DateTime, NaiveDate, NaiveTime};
 use chrono_tz::Tz;
-use power_interuptions::location::NairobiTZDateTime;
+use entities::power_interruptions::location::NairobiTZDateTime;
 
 #[derive(Debug)]
 pub struct Area {

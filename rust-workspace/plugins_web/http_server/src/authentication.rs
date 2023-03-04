@@ -3,13 +3,13 @@ use actix_web::http::header::Header;
 use actix_web::HttpRequest;
 use actix_web_httpauth::headers::authorization;
 use anyhow::{anyhow, Context};
+use entities::subscriptions::details::SubscriberExternalId;
 use jsonwebtoken::jwk::AlgorithmParameters;
 use jsonwebtoken::{decode, decode_header, jwk, Algorithm, DecodingKey, Validation};
 use lazy_static::lazy_static;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
-use subscriber::subscriber::details::SubscriberExternalId;
 use use_cases::actor::{Actor, ExternalId, Permissions};
 
 lazy_static! {

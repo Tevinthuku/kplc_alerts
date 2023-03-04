@@ -1,7 +1,7 @@
 use crate::repository::Repository;
 use anyhow::Context;
 use async_trait::async_trait;
-use subscriber::subscriber::details::SubscriberDetails;
+use entities::subscriptions::details::SubscriberDetails;
 use use_cases::authentication::SubscriberAuthenticationRepo;
 
 #[async_trait]
@@ -31,6 +31,9 @@ impl SubscriberAuthenticationRepo for Repository {
 #[cfg(test)]
 mod tests {
     use crate::repository::Repository;
+    use entities::subscriptions::details::{
+        SubscriberDetails, SubscriberEmail, SubscriberExternalId, SubscriberName,
+    };
     use subscriber::subscriber::details::{
         SubscriberDetails, SubscriberEmail, SubscriberExternalId, SubscriberName,
     };

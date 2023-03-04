@@ -1,6 +1,7 @@
 pub mod details;
+pub mod plans;
 
-use crate::plans::Plan;
+use crate::subscriptions::plans::Plan;
 use uuid::Uuid;
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]

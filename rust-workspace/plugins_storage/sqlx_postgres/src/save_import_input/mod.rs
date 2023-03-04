@@ -6,10 +6,10 @@ use std::{collections::HashMap, iter};
 use crate::repository::Repository;
 use crate::save_import_input::counties::{DbCounty, DbCountyId};
 use async_trait::async_trait;
-use futures::stream::FuturesUnordered;
-use power_interuptions::location::{
+use entities::power_interruptions::location::{
     Area, County, FutureOrCurrentNairobiTZDateTime, NairobiTZDateTime, Region, TimeFrame,
 };
+use futures::stream::FuturesUnordered;
 use url::Url;
 use use_cases::import_planned_blackouts::SaveBlackOutsRepo;
 use uuid::Uuid;
@@ -18,7 +18,7 @@ use uuid::Uuid;
 impl SaveBlackOutsRepo for Repository {
     async fn save_blackouts(
         &self,
-        data: &power_interuptions::location::ImportInput,
+        data: &entities::power_interruptions::location::ImportInput,
     ) -> anyhow::Result<()> {
         let counties = self.get_counties().await?;
         let mut transaction = self
@@ -229,7 +229,7 @@ impl BlackoutSchedule {
 mod tests {
     use std::collections::HashMap;
 
-    use power_interuptions::location::{
+    use entities::power_interruptions::location::{
         Area, County, ImportInput, NairobiTZDateTime, Region, TimeFrame,
     };
     use use_cases::import_planned_blackouts::SaveBlackOutsRepo;

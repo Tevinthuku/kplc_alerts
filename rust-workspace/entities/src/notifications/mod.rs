@@ -1,6 +1,6 @@
+use crate::power_interruptions::location::LocationWithDateAndTime;
+use crate::subscriptions::AffectedSubscriber;
 use async_trait::async_trait;
-use power_interuptions::location::LocationWithDateAndTime;
-use subscriber::subscriber::{AffectedSubscriber, SubscriberId};
 use url::Url;
 
 pub struct Notification {

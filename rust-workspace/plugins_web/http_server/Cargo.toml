@@ -17,5 +17,5 @@ jsonwebtoken = "8.2.0"
 lazy_static = "1.4.0"
 ureq = { version = "2.6", features = ["json"] }
 use_cases = { path = "../../use_cases" }
-subscriber = { path = "../../subscriber" }
+entities = { path = "../../entities" }
 sqlx_postgres = { path = "../../plugins_storage/sqlx_postgres" }
