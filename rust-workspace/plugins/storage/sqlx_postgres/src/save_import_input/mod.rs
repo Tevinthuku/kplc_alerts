@@ -219,3 +219,42 @@ impl BlackoutSchedule {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use power_interuptions::location::{
+        Area, County, ImportInput, NairobiTZDateTime, Region, TimeFrame,
+    };
+    use use_cases::import_planned_blackouts::SaveBlackOutsRepo;
+
+    use crate::repository::Repository;
+
+    fn generate_input() -> ImportInput {
+        let url = url::Url::parse("https://crates.io/crates/fake").unwrap();
+        let region = Region {
+            region: "Nairobi".to_string(),
+            counties: vec![County {
+                name: "Nairobi".to_string(),
+                areas: vec![Area {
+                    name: "Garden city".to_string(),
+                    time_frame: TimeFrame {
+                        from: NairobiTZDateTime::today().try_into().unwrap(),
+                        to: NairobiTZDateTime::today().try_into().unwrap(),
+                    },
+                    locations: vec!["Will Mary Estate".to_string(), "Mi Vida".to_string()],
+                }],
+            }],
+        };
+        let data = HashMap::from_iter([(url, vec![region])]);
+        ImportInput(data)
+    }
+    #[tokio::test]
+    async fn test_can_save_data_successfully() {
+        let repository = Repository::new_test_repo().await;
+        let result = repository.save_blackouts(&generate_input()).await;
+
+        assert!(result.is_ok())
+    }
+}

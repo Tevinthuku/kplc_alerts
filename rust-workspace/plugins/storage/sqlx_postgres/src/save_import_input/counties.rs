@@ -71,6 +71,18 @@ impl DbCounty {
 
 impl Repository {
     pub async fn get_counties(&self) -> anyhow::Result<Vec<DbCounty>> {
+        let pool = self.pool();
+        let records = sqlx::query!(
+            "
+            SELECT * FROM location.county
+            "
+        )
+        .fetch_all(pool)
+        .await;
+
+        let counties = records.into_iter().map(|record| {
+                
+        });
         todo!()
     }
 }

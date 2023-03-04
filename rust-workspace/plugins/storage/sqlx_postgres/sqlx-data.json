@@ -1,5 +1,29 @@
 {
   "db": "PostgreSQL",
+  "188170ea821cd4276996f9980936bf9fcf80ab6b7ac541d249ebcbcb7b164608": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\n            SELECT * FROM location.county\n            "
+  },
   "302a35e1056d812323112fd09f1268bd1893ac83101872fb2620a3e53e537395": {
     "describe": {
       "columns": [
@@ -65,21 +89,6 @@
       }
     },
     "query": "\n            INSERT INTO location.area(name, county_id)\n            SELECT * FROM UNNEST($1::text[], $2::uuid[]) ON CONFLICT DO NOTHING\n            "
-  },
-  "8446cdaa99874e0531a2b5511adacbca0ee98cba869b278f3a2558bd681355cb": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Uuid",
-          "Timestamptz",
-          "Timestamptz",
-          "Uuid"
-        ]
-      }
-    },
-    "query": "\n            INSERT INTO location.blackout_schedule(area_id, start_time, end_time, source_id) \n            VALUES($1, $2, $3,$4)\n            "
   },
   "8ca5b21d263deca294d82dff8d6a200da5438fb9d6c149cf8c89f85b963c4698": {
     "describe": {
