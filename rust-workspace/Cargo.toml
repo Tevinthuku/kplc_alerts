@@ -1,9 +1,9 @@
 [workspace]
 members = [
     "use_cases",
-    "plugins_storage/*",
+    "storage_plugins/*",
     "import_power_interruptions_plugins/*",
-    "plugins_notifications/*",
+    "notification_plugins/*",
     "plugins_web/*",
     "entities"
 ]
