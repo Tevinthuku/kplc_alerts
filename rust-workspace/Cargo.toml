@@ -2,7 +2,7 @@
 members = [
     "use_cases",
     "plugins_storage/*",
-    "plugins_import_power_interruptions/*",
+    "import_power_interruptions_plugins/*",
     "plugins_notifications/*",
     "plugins_web/*",
     "entities"
