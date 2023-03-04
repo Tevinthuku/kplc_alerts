@@ -23,7 +23,7 @@ pub struct SubscriberWithLocations {
 
 #[async_trait]
 pub trait SubscriberRepo: Send + Sync {
-    async fn get_subscribers_from_affected_locations(
+    async fn get_affected_subscribers(
         &self,
         regions: &[Region],
     ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<LocationWithDateAndTime>>>;
@@ -43,7 +43,7 @@ impl NotifySubscribersOfAffectedAreas for Notifier {
         let mut futures: FuturesUnordered<_> = data
             .0
             .iter()
-            .map(|(url, regions)| self.notify_subscribers_about_regions(url.clone(), regions))
+            .map(|(url, regions)| self.notify_affected_subscribers(url.clone(), regions))
             .collect();
 
         while let Some(result) = futures.next().await {
@@ -59,14 +59,14 @@ impl NotifySubscribersOfAffectedAreas for Notifier {
 }
 
 impl Notifier {
-    async fn notify_subscribers_about_regions(
+    async fn notify_affected_subscribers(
         &self,
         url: Url,
         regions: &[Region],
     ) -> anyhow::Result<()> {
         let mapping_of_subscriber_to_locations = self
             .subscriber_repo
-            .get_subscribers_from_affected_locations(regions)
+            .get_affected_subscribers(regions)
             .await?;
 
         let subscriber_ids = mapping_of_subscriber_to_locations
