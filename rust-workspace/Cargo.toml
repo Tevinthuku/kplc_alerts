@@ -4,6 +4,6 @@ members = [
     "storage_plugins/*",
     "import_power_interruptions_plugins/*",
     "notification_plugins/*",
-    "plugins_web/*",
+    "http_server_plugin",
     "entities"
 ]
