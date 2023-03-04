@@ -21,7 +21,7 @@ pub struct Region<T = FutureOrCurrentNairobiTZDateTime> {
 pub struct NairobiTZDateTime(DateTime<Tz>);
 
 impl NairobiTZDateTime {
-    fn today() -> Self {
+    pub fn today() -> Self {
         let today = Utc::now().naive_utc();
         NairobiTZDateTime(Nairobi.from_utc_datetime(&today))
     }

@@ -1,5 +1,5 @@
 use crate::repository::Repository;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
@@ -13,14 +13,16 @@ impl From<String> for DbCountyName {
 
 impl DbCountyName {
     fn matches(&self, county: &str) -> bool {
-        if self.0 == county {
+        if self.0.eq_ignore_ascii_case(county) {
             return true;
         }
 
         if let Some(first_part_of_county_name) =
             self.first_substring_of_county_name_split_by_space()
         {
-            return county.contains(first_part_of_county_name);
+            return county
+                .to_ascii_uppercase()
+                .contains(&first_part_of_county_name.to_ascii_uppercase());
         }
 
         false
@@ -72,18 +74,23 @@ impl DbCounty {
 impl Repository {
     pub async fn get_counties(&self) -> anyhow::Result<Vec<DbCounty>> {
         let pool = self.pool();
-        let records = sqlx::query!(
+        let counties = sqlx::query!(
             "
-            SELECT * FROM location.county
+            SELECT id, name FROM location.county
             "
         )
         .fetch_all(pool)
-        .await;
+        .await
+        .context("Failed to load counties")?;
 
-        let counties = records.into_iter().map(|record| {
-                
-        });
-        todo!()
+        let counties = counties
+            .into_iter()
+            .map(|record| DbCounty {
+                id: record.id.into(),
+                name: record.name.into(),
+            })
+            .collect();
+        Ok(counties)
     }
 }
 

@@ -1,29 +1,5 @@
 {
   "db": "PostgreSQL",
-  "188170ea821cd4276996f9980936bf9fcf80ab6b7ac541d249ebcbcb7b164608": {
-    "describe": {
-      "columns": [
-        {
-          "name": "id",
-          "ordinal": 0,
-          "type_info": "Uuid"
-        },
-        {
-          "name": "name",
-          "ordinal": 1,
-          "type_info": "Varchar"
-        }
-      ],
-      "nullable": [
-        false,
-        false
-      ],
-      "parameters": {
-        "Left": []
-      }
-    },
-    "query": "\n            SELECT * FROM location.county\n            "
-  },
   "302a35e1056d812323112fd09f1268bd1893ac83101872fb2620a3e53e537395": {
     "describe": {
       "columns": [
@@ -49,6 +25,30 @@
       }
     },
     "query": "INSERT INTO public.source(url) VALUES ($1) ON CONFLICT DO NOTHING RETURNING id, url "
+  },
+  "392b97c0a94047b48ab5ed90e77439865c8806260f35d38b1aa067860be5c2db": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\n            SELECT id, name FROM location.county\n            "
   },
   "42c7e18d1c75c2eb878dd061c158122c093001d9fd276492fefd2629298405ca": {
     "describe": {

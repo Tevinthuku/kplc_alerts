@@ -33,6 +33,11 @@ impl SaveBlackOutsRepo for Repository {
             save_regions_data(regions, &counties, &mut transaction, source.id).await?;
         }
 
+        transaction
+            .commit()
+            .await
+            .context("Failed to commit transaction")?;
+
         Ok(())
     }
 }
@@ -254,7 +259,6 @@ mod tests {
     async fn test_can_save_data_successfully() {
         let repository = Repository::new_test_repo().await;
         let result = repository.save_blackouts(&generate_input()).await;
-
         assert!(result.is_ok())
     }
 }
