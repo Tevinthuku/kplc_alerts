@@ -1,7 +1,7 @@
 use crate::import_affected_areas::NotifySubscribersOfAffectedAreas;
 use async_trait::async_trait;
 use entities::notifications::{DeliveryStrategy, Notification};
-use entities::power_interruptions::location::{ImportInput, LocationWithDateAndTime, Region};
+use entities::power_interruptions::location::{AffectedLine, ImportInput, Region};
 use entities::subscriptions::{AffectedSubscriber, SubscriberId};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -16,9 +16,9 @@ pub struct Notifier {
 }
 
 #[derive(Clone)]
-pub struct SubscriberWithLocations {
+pub struct SubscriberWithAffectedLines {
     subscriber: AffectedSubscriber,
-    locations: Vec<LocationWithDateAndTime>,
+    lines: Vec<AffectedLine>,
 }
 
 #[async_trait]
@@ -26,7 +26,7 @@ pub trait SubscriberRepo: Send + Sync {
     async fn get_affected_subscribers(
         &self,
         regions: &[Region],
-    ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<LocationWithDateAndTime>>>;
+    ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<AffectedLine>>>;
 }
 
 #[async_trait]
@@ -81,13 +81,10 @@ impl Notifier {
 
         let mapping_of_subscriber_to_locations = mapping_of_subscriber_to_locations
             .into_iter()
-            .map(|(subscriber, locations)| {
+            .map(|(subscriber, lines)| {
                 (
                     subscriber.id(),
-                    SubscriberWithLocations {
-                        subscriber,
-                        locations,
-                    },
+                    SubscriberWithAffectedLines { subscriber, lines },
                 )
             })
             .collect::<HashMap<_, _>>();
@@ -104,7 +101,7 @@ impl Notifier {
                             .map(|data| Notification {
                                 url: url.clone(),
                                 subscriber: data.subscriber,
-                                locations: data.locations,
+                                lines: data.lines,
                             })
                     })
                     .collect::<Vec<_>>();
