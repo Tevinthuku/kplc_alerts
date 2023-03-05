@@ -1,13 +1,25 @@
 use crate::actor::Actor;
 use crate::authentication::subscriber_authentication::SubscriberResolverInteractor;
-use crate::locations::data::{Location, LocationId, LocationWithId};
+use crate::subscriber_locations::data::{Location, LocationId, LocationWithId};
 use async_trait::async_trait;
 use entities::subscriptions::SubscriberId;
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[async_trait]
 pub trait SubscribeToLocationInteractor: Send + Sync {
     async fn subscribe(&self, actor: &dyn Actor, location: Location) -> anyhow::Result<()>;
+}
+
+pub struct PlaceId(Uuid);
+pub struct LocationResponse {
+    id: PlaceId,
+    name: String,
+}
+
+#[async_trait]
+pub trait LocationSearchApi {
+    async fn search(&self, text: String) -> anyhow::Result<Vec<LocationResponse>>;
 }
 
 #[async_trait]

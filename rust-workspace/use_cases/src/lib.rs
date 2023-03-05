@@ -5,9 +5,9 @@ use std::sync::Arc;
 pub mod actor;
 pub mod authentication;
 pub mod import_affected_areas;
-pub mod locations;
 pub mod notifications;
 mod repositories;
+pub mod subscriber_locations;
 
 pub trait App {
     fn authentication(&self) -> &dyn AuthenticationInteractor;
