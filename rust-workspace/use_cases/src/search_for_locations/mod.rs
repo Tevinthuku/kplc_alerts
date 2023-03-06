@@ -8,9 +8,15 @@ use crate::{
 };
 
 pub struct LocationId(String);
+
+impl From<String> for LocationId {
+    fn from(value: String) -> Self {
+        LocationId(value)
+    }
+}
 pub struct LocationResponse {
-    id: LocationId,
-    name: String,
+    pub id: LocationId,
+    pub name: String,
 }
 
 #[async_trait]

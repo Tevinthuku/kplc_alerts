@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
-use anyhow::Ok;
+use anyhow::{Context, Ok};
 use use_cases::search_for_locations::{LocationResponse, LocationSearchApi};
 
 use async_trait::async_trait;
+use secrecy::ExposeSecret;
 use serde::Deserialize;
 use serde::Serialize;
+use shared_kernel::http_client::HttpClient;
+use url::Url;
 
-use crate::configuration::Settings;
+use crate::configuration::{LocationSearcherConfig, Settings};
 
 #[derive(Deserialize, Serialize)]
 pub struct MatchedSubstrings {
@@ -37,34 +40,99 @@ pub enum StatusCode {
     UNKNOWNERROR,
 }
 
+impl StatusCode {
+    fn is_cacheable(&self) -> bool {
+        match self {
+            StatusCode::OK | StatusCode::ZERORESULTS => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct LocationSearchApiResponse {
+    description: String,
     status: StatusCode,
     predictions: Vec<LocationSearchApiResponsePrediction>,
     error_message: Option<String>,
 }
 
+impl LocationSearchApiResponse {
+    fn is_cacheable(&self) -> bool {
+        self.status.is_cacheable()
+    }
+}
+
 #[async_trait]
 pub trait LocationSearchApiResponseCache: Send + Sync {
-    async fn get(&self, key: String) -> anyhow::Result<Option<LocationSearchApiResponse>>;
-    async fn set(&self, key: String, response: LocationSearchApiResponse) -> anyhow::Result<()>;
+    async fn get(&self, key: &Url) -> anyhow::Result<Option<LocationSearchApiResponse>>;
+    async fn set(&self, key: &Url, response: &LocationSearchApiResponse) -> anyhow::Result<()>;
 }
 
 pub struct Searcher {
     cache: Arc<dyn LocationSearchApiResponseCache>,
+    config: LocationSearcherConfig,
+}
+
+impl From<LocationSearchApiResponse> for Vec<LocationResponse> {
+    fn from(api_response: LocationSearchApiResponse) -> Self {
+        api_response
+            .predictions
+            .iter()
+            .map(|prediction| LocationResponse {
+                id: prediction.place_id.clone().into(),
+                name: prediction.description.clone(),
+            })
+            .collect::<Vec<_>>()
+    }
 }
 
 #[async_trait]
 impl LocationSearchApi for Searcher {
     async fn search(&self, text: String) -> anyhow::Result<Vec<LocationResponse>> {
-        todo!()
+        let url = Url::parse_with_params(
+            &self.config.host,
+            &[
+                ("key", self.config.api_key.expose_secret()),
+                ("input", &text),
+            ],
+        )
+        .context("Failed to parse url")?;
+
+        let cached_response = self.cache.get(&url).await;
+
+        if let Err(err) = &cached_response {
+            // TODO: Log error
+            println!("{err:?}")
+        }
+
+        let response = cached_response.ok().flatten();
+
+        if let Some(response) = response {
+            return Ok(response.into());
+        }
+
+        let api_response = HttpClient::get_json::<LocationSearchApiResponse>(url.clone()).await?;
+
+        if api_response.is_cacheable() {
+            let cached_result = self.cache.set(&url, &api_response).await;
+            if let Err(err) = cached_result {
+                // TODO: Log error
+                println!("{err:?}")
+            }
+        }
+
+        Ok(api_response.into())
     }
 }
 
 impl Searcher {
     pub fn new(cache: Arc<dyn LocationSearchApiResponseCache>) -> anyhow::Result<Self> {
-        let _settings = Settings::parse()?;
+        let settings = Settings::parse()?;
 
-        Ok(Searcher { cache })
+        Ok(Searcher {
+            cache,
+            config: settings.location_searcher,
+        })
     }
 }

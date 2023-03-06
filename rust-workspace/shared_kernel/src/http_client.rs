@@ -5,6 +5,7 @@ use reqwest::Response;
 
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
+use serde::de::DeserializeOwned;
 use url::Url;
 
 lazy_static! {
@@ -40,5 +41,13 @@ impl HttpClient {
             .text()
             .await
             .with_context(|| format!("Failed to get text from {url}"))
+    }
+
+    pub async fn get_json<DTO: DeserializeOwned>(url: Url) -> anyhow::Result<DTO> {
+        Self::get(url.clone())
+            .await?
+            .json::<DTO>()
+            .await
+            .with_context(|| format!("Failed to get json from {url}"))
     }
 }

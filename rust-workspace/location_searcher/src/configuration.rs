@@ -3,14 +3,14 @@ use secrecy::Secret;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub struct LocationSearcher {
-    host: String,
-    api_key: Secret<String>,
+pub struct LocationSearcherConfig {
+    pub host: String,
+    pub api_key: Secret<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
-    location_searcher: LocationSearcher,
+    pub location_searcher: LocationSearcherConfig,
 }
 
 impl Settings {
