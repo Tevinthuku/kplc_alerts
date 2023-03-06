@@ -11,17 +11,6 @@ pub trait SubscribeToLocationInteractor: Send + Sync {
     async fn subscribe(&self, actor: &dyn Actor, location: Location) -> anyhow::Result<()>;
 }
 
-pub struct PlaceId(Uuid);
-pub struct LocationResponse {
-    id: PlaceId,
-    name: String,
-}
-
-#[async_trait]
-pub trait LocationSearchApi {
-    async fn search(&self, text: String) -> anyhow::Result<Vec<LocationResponse>>;
-}
-
 #[async_trait]
 pub trait CreateLocationRepo: Send + Sync {
     async fn create_or_return_existing_location(
