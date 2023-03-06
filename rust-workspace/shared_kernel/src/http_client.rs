@@ -27,7 +27,7 @@ impl HttpClient {
             .await
             .with_context(|| format!("Failed to fetch request from {url}"))
     }
-    pub async fn get_bytes(url: Url) -> Result<Bytes, Error> {
+    pub async fn get_bytes(url: Url) -> anyhow::Result<Bytes> {
         Self::get(url.clone())
             .await?
             .bytes()

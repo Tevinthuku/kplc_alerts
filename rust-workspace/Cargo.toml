@@ -6,5 +6,6 @@ members = [
     "notification_strategies/*",
     "http_server",
     "entities",
-    "location_searcher"
+    "location_searcher",
+    "shared_kernel"
 ]
