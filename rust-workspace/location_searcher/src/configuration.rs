@@ -2,7 +2,7 @@ use anyhow::Context;
 use secrecy::Secret;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct LocationSearcherConfig {
     pub host: String,
     pub api_key: Secret<String>,

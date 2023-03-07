@@ -181,5 +181,25 @@
       }
     },
     "query": "\n            INSERT INTO location.blackout_schedule(area_id, start_time, end_time, source_id) \n            SELECT * FROM UNNEST($1::uuid[], $2::timestamptz[], $3::timestamptz[], $4::uuid[]) ON CONFLICT DO NOTHING\n            "
+  },
+  "fb902a1af28ca72f0f6f3617384874897e3e807f12f907e3ceb6de5bdc889d85": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            SELECT id FROM public.subscriber WHERE external_id = $1\n            "
   }
 }

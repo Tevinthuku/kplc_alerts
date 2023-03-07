@@ -38,6 +38,18 @@ pub struct LocationSearchInteractorImpl {
     subscriber_resolver: Arc<dyn SubscriberResolverInteractor>,
 }
 
+impl LocationSearchInteractorImpl {
+    pub fn new(
+        search_api: Arc<dyn LocationSearchApi>,
+        subscriber_resolver: Arc<dyn SubscriberResolverInteractor>,
+    ) -> Self {
+        Self {
+            search_api,
+            subscriber_resolver,
+        }
+    }
+}
+
 #[async_trait]
 impl LocationSearchInteractor for LocationSearchInteractorImpl {
     async fn search(

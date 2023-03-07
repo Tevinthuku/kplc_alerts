@@ -42,10 +42,7 @@ pub enum StatusCode {
 
 impl StatusCode {
     fn is_cacheable(&self) -> bool {
-        match self {
-            StatusCode::OK | StatusCode::ZERORESULTS => true,
-            _ => false,
-        }
+        matches!(self, StatusCode::OK | StatusCode::ZERORESULTS)
     }
 }
 

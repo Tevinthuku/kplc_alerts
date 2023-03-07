@@ -1,3 +1,8 @@
+use authentication::subscriber_authentication::SubscriberResolverInteractorImpl;
+use search_for_locations::{
+    LocationSearchApi, LocationSearchInteractor, LocationSearchInteractorImpl,
+};
+
 use crate::authentication::{AuthenticationInteractor, AuthenticationInteractorImpl};
 use crate::repositories::Repository;
 use std::sync::Arc;
@@ -16,6 +21,7 @@ pub trait App {
 
 pub struct AppImpl {
     authentication: Arc<dyn AuthenticationInteractor>,
+    location_searcher_interactor: Arc<dyn LocationSearchInteractor>,
 }
 
 impl App for AppImpl {
@@ -25,12 +31,20 @@ impl App for AppImpl {
 }
 
 impl AppImpl {
-    pub fn new<R: Repository + 'static>(repo: R) -> Self {
+    pub fn new<R: Repository + 'static>(
+        repo: R,
+        location_searcher: Arc<dyn LocationSearchApi>,
+    ) -> Self {
         let repository = Arc::new(repo);
+        let subscriber_authentication_checker =
+            Arc::new(SubscriberResolverInteractorImpl::new(repository.clone()));
         let authentication_interactor = AuthenticationInteractorImpl::new(repository.clone());
+        let location_searcher_interactor =
+            LocationSearchInteractorImpl::new(location_searcher, subscriber_authentication_checker);
 
         Self {
             authentication: Arc::new(authentication_interactor),
+            location_searcher_interactor: Arc::new(location_searcher_interactor),
         }
     }
 }
