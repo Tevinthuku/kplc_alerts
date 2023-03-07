@@ -1,5 +1,18 @@
 {
   "db": "PostgreSQL",
+  "2f273f726b1261f1e0bf8f6bdbe6786d23bfb0b13a23120eb500f3367818379c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO location.location_search_cache ( key, value )\n            VALUES ( $1, $2 )\n            "
+  },
   "302a35e1056d812323112fd09f1268bd1893ac83101872fb2620a3e53e537395": {
     "describe": {
       "columns": [
@@ -101,6 +114,26 @@
       }
     },
     "query": "\n            INSERT INTO location.area(name, county_id)\n            SELECT * FROM UNNEST($1::text[], $2::uuid[]) ON CONFLICT DO NOTHING\n            "
+  },
+  "6ba4a55e12e4c33b26834d3d5c15347356ea21dc881e8e0fee79c304bc143dff": {
+    "describe": {
+      "columns": [
+        {
+          "name": "value: Json<LocationSearchApiResponse>",
+          "ordinal": 0,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            SELECT value as \"value: Json<LocationSearchApiResponse>\" FROM location.location_search_cache WHERE key = $1\n            "
   },
   "8ca5b21d263deca294d82dff8d6a200da5438fb9d6c149cf8c89f85b963c4698": {
     "describe": {
