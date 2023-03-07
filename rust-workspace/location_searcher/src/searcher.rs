@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Ok};
-use use_cases::search_for_locations::{LocationResponse, LocationSearchApi};
+use use_cases::search_for_locations::{LocationApiResponse, LocationSearchApi};
 
 use async_trait::async_trait;
 use secrecy::ExposeSecret;
@@ -48,7 +48,6 @@ impl StatusCode {
 
 #[derive(Deserialize, Serialize)]
 pub struct LocationSearchApiResponse {
-    description: String,
     status: StatusCode,
     predictions: Vec<LocationSearchApiResponsePrediction>,
     error_message: Option<String>,
@@ -71,12 +70,12 @@ pub struct Searcher {
     config: LocationSearcherConfig,
 }
 
-impl From<LocationSearchApiResponse> for Vec<LocationResponse> {
+impl From<LocationSearchApiResponse> for Vec<LocationApiResponse> {
     fn from(api_response: LocationSearchApiResponse) -> Self {
         api_response
             .predictions
             .iter()
-            .map(|prediction| LocationResponse {
+            .map(|prediction| LocationApiResponse {
                 id: prediction.place_id.clone().into(),
                 name: prediction.description.clone(),
             })
@@ -86,7 +85,7 @@ impl From<LocationSearchApiResponse> for Vec<LocationResponse> {
 
 #[async_trait]
 impl LocationSearchApi for Searcher {
-    async fn search(&self, text: String) -> anyhow::Result<Vec<LocationResponse>> {
+    async fn search(&self, text: String) -> anyhow::Result<Vec<LocationApiResponse>> {
         let url = Url::parse_with_params(
             &self.config.host,
             &[

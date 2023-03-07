@@ -33,14 +33,14 @@ impl HttpClient {
             .await?
             .bytes()
             .await
-            .with_context(|| format!("Failed to get bytes from {url}"))
+            .context("Failed to get bytes response")
     }
     pub async fn get_text(url: Url) -> anyhow::Result<String> {
         Self::get(url.clone())
             .await?
             .text()
             .await
-            .with_context(|| format!("Failed to get text from {url}"))
+            .context("Failed to get text response")
     }
 
     pub async fn get_json<DTO: DeserializeOwned>(url: Url) -> anyhow::Result<DTO> {
@@ -48,6 +48,6 @@ impl HttpClient {
             .await?
             .json::<DTO>()
             .await
-            .with_context(|| format!("Failed to get json from {url}"))
+            .context("Failed to get json response")
     }
 }

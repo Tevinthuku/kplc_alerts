@@ -17,6 +17,7 @@ pub mod subscriber_locations;
 
 pub trait App {
     fn authentication(&self) -> &dyn AuthenticationInteractor;
+    fn location_searcher(&self) -> &dyn LocationSearchInteractor;
 }
 
 pub struct AppImpl {
@@ -27,6 +28,10 @@ pub struct AppImpl {
 impl App for AppImpl {
     fn authentication(&self) -> &dyn AuthenticationInteractor {
         self.authentication.as_ref()
+    }
+
+    fn location_searcher(&self) -> &dyn LocationSearchInteractor {
+        self.location_searcher_interactor.as_ref()
     }
 }
 
