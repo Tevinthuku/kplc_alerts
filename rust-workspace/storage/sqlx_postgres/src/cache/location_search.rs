@@ -29,7 +29,7 @@ impl LocationSearchApiResponseCache for Repository {
         Ok(None)
     }
 
-    async fn set(&self, key: &Url, response: &LocationSearchApiResponse) -> anyhow::Result<()> {
+    async fn set(&self, key: &Url, response: &serde_json::Value) -> anyhow::Result<()> {
         let _ = sqlx::query!(
             r#"
             INSERT INTO location.location_search_cache ( key, value )

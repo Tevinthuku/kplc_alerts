@@ -53,6 +53,11 @@ pub struct LocationSearchApiResponse {
     error_message: Option<String>,
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct StatusContainer {
+    status: StatusCode,
+}
+
 impl LocationSearchApiResponse {
     fn is_cacheable(&self) -> bool {
         self.status.is_cacheable()
@@ -62,7 +67,7 @@ impl LocationSearchApiResponse {
 #[async_trait]
 pub trait LocationSearchApiResponseCache: Send + Sync {
     async fn get(&self, key: &Url) -> anyhow::Result<Option<LocationSearchApiResponse>>;
-    async fn set(&self, key: &Url, response: &LocationSearchApiResponse) -> anyhow::Result<()>;
+    async fn set(&self, key: &Url, response: &serde_json::Value) -> anyhow::Result<()>;
 }
 
 pub struct Searcher {
@@ -108,9 +113,10 @@ impl LocationSearchApi for Searcher {
             return Ok(response.into());
         }
 
-        let api_response = HttpClient::get_json::<LocationSearchApiResponse>(url.clone()).await?;
-
-        if api_response.is_cacheable() {
+        let api_response = HttpClient::get_json::<serde_json::Value>(url.clone()).await?;
+        let response = serde_json::from_value::<LocationSearchApiResponse>(api_response.clone())
+            .context("Failed to get valid api response")?;
+        if response.is_cacheable() {
             let cached_result = self.cache.set(&url, &api_response).await;
             if let Err(err) = cached_result {
                 // TODO: Log error
@@ -118,7 +124,7 @@ impl LocationSearchApi for Searcher {
             }
         }
 
-        Ok(api_response.into())
+        Ok(response.into())
     }
 }
 
