@@ -47,7 +47,7 @@ impl Repository {
 
         let mut rows = sqlx::query_as::<_, DbLocationSearchResults>(
             "
-            SELECT * FROM location.search_locations($1::text[])
+            SELECT * FROM location.search_locations_primary_text($1::text[])
             ",
         )
         .bind(searcheable_lines)
@@ -90,7 +90,10 @@ mod tests {
                             from: NairobiTZDateTime::today().try_into().unwrap(),
                             to: NairobiTZDateTime::today().try_into().unwrap(),
                         },
-                        locations: vec!["Lumumba drive".to_string(), "USIU University".to_string()],
+                        locations: vec![
+                            "Lumumba dr".to_string(),
+                            "Pan Africa Christian University".to_string(),
+                        ],
                     },
                 ],
             }],
@@ -105,12 +108,18 @@ mod tests {
         repository
             .insert_location(LocationInput {
                 name: "Mi Vida, Garden City".to_string(),
+                address: "".to_string(),
+                external_id: "".to_string().into(),
+                api_response: serde_json::json!({}),
             })
             .await
             .unwrap();
         repository
             .insert_location(LocationInput {
                 name: "Beston Fast foods, Lumumba Drive".to_string(),
+                address: "".to_string(),
+                external_id: "".to_string().into(),
+                api_response: serde_json::json!({}),
             })
             .await
             .unwrap();

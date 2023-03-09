@@ -1,7 +1,7 @@
 use crate::repository::Repository;
 use anyhow::Context;
 use async_trait::async_trait;
-use location_searcher::searcher::{LocationSearchApiResponse, LocationSearchApiResponseCache};
+use location_searcher::text_search::{LocationSearchApiResponse, LocationSearchApiResponseCache};
 use sqlx::types::Json;
 use url::Url;
 

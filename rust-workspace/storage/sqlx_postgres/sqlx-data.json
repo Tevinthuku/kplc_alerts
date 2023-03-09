@@ -63,18 +63,6 @@
     },
     "query": "\n            SELECT id, name FROM location.county\n            "
   },
-  "3c631b52eeda375828486d1af14f2e821eb5a7f56f7615ddb1337c3248158cbd": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Text"
-        ]
-      }
-    },
-    "query": "\n            INSERT INTO location.locations (name) VALUES ($1) ON CONFLICT DO NOTHING\n            "
-  },
   "42c7e18d1c75c2eb878dd061c158122c093001d9fd276492fefd2629298405ca": {
     "describe": {
       "columns": [],
@@ -166,6 +154,22 @@
       }
     },
     "query": "SELECT * FROM location.area WHERE name = ANY($1)"
+  },
+  "e2349855ce41569176081a9ec4011a4ee79bd866b9dd3d69077bc3644a4db1a6": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Text",
+          "Text",
+          "Text",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO location.locations (name, external_id, address, sanitized_address, external_api_response) \n            VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING\n            "
   },
   "f3ac55e2b438d6ca309cb1fe35a2ebc56ecd131c6985e2090391c4e9285519f3": {
     "describe": {
