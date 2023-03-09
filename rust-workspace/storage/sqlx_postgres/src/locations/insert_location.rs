@@ -22,7 +22,15 @@ impl From<String> for NonAcronymString {
         ]);
         let split = value
             .split(' ')
-            .map(|val| format!("{} ", acronym_map.get(val).cloned().unwrap_or(val)))
+            .map(|val| {
+                format!(
+                    "{} ",
+                    acronym_map
+                        .get(val.to_ascii_lowercase().as_str())
+                        .cloned()
+                        .unwrap_or(val)
+                )
+            })
             .collect::<String>()
             .trim()
             .to_owned();
