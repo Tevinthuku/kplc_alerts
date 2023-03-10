@@ -10,6 +10,7 @@ anyhow = "1.0.69"
 async-trait = "0.1.64"
 config = "0.13.3"
 chrono = "0.4.23"
+futures = "0.3"
 chrono-tz = "0.8.1"
 thiserror = "1.0.38"
 secrecy = { version = "0.8", features = ["serde"] }
