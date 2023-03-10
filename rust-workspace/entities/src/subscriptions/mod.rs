@@ -7,6 +7,12 @@ use uuid::Uuid;
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct SubscriberId(Uuid);
 
+impl SubscriberId {
+    pub fn into_inner(self) -> Uuid {
+        self.0
+    }
+}
+
 impl From<Uuid> for SubscriberId {
     fn from(value: Uuid) -> Self {
         SubscriberId(value)

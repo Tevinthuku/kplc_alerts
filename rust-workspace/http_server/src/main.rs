@@ -16,7 +16,6 @@ mod use_case_app_container;
 async fn main() -> anyhow::Result<()> {
     let repository = Repository::new().await?;
     let location_searcher = Searcher::new(Arc::new(repository.clone()))?;
-    let location_searcher = Arc::new(location_searcher);
 
     HttpServer::new(move || {
         let app = AppImpl::new(repository.clone(), location_searcher.clone());

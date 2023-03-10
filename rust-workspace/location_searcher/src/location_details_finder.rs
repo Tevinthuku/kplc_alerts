@@ -12,10 +12,10 @@ use use_cases::subscriber_locations::data::{LocationId, LocationInput};
 use use_cases::subscriber_locations::subscribe_to_location::LocationDetailsFinder;
 
 pub struct LocationDetailsInput {
-    id: ExternalLocationId,
-    name: String,
-    address: String,
-    api_response: serde_json::Value, // TODO: Clean this up
+    pub id: ExternalLocationId,
+    pub name: String,
+    pub address: String,
+    pub api_response: serde_json::Value, // TODO: Clean this up
 }
 
 #[async_trait]
@@ -38,10 +38,7 @@ impl LocationDetailsFinder for Searcher {
     ) -> anyhow::Result<LocationInput<LocationId>> {
         let all_ids = location.ids();
 
-        let found = self
-            .location_details_cache
-            .find_many(all_ids.clone())
-            .await?;
+        let found = self.cache.find_many(all_ids.clone()).await?;
 
         let found_keys: HashSet<_> = HashSet::from_iter(found.keys().cloned());
         let all_ids_hash_set = HashSet::from_iter(location.ids().into_iter());
@@ -83,10 +80,10 @@ impl LocationDetailsFinder for Searcher {
             return Err(anyhow!("{errors:?}"));
         }
 
-        self.location_details_cache.save_many(details).await?;
+        self.cache.save_many(details).await?;
 
         let mapping_of_external_id_to_location_id = self
-            .location_details_cache
+            .cache
             .find_many(all_ids_hash_set.into_iter().collect())
             .await?;
 

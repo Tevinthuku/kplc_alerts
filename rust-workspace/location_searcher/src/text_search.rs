@@ -20,8 +20,6 @@ pub struct LocationSearchApiResponsePrediction {
     place_id: String,
 }
 
-
-
 #[derive(Deserialize, Serialize)]
 pub struct LocationSearchApiResponse {
     status: StatusCode,
@@ -69,7 +67,7 @@ impl LocationSearchApi for Searcher {
         )
         .context("Failed to parse url")?;
 
-        let cached_response = self.text_search_cache.get(&url).await;
+        let cached_response = self.cache.get(&url).await;
 
         if let Err(err) = &cached_response {
             // TODO: Log error
@@ -86,7 +84,7 @@ impl LocationSearchApi for Searcher {
         let response = serde_json::from_value::<LocationSearchApiResponse>(api_response.clone())
             .context("Failed to get valid api response")?;
         if response.is_cacheable() {
-            let cached_result = self.text_search_cache.set(&url, &api_response).await;
+            let cached_result = self.cache.set(&url, &api_response).await;
             if let Err(err) = cached_result {
                 // TODO: Log error
                 println!("{err:?}")

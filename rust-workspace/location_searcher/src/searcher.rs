@@ -14,22 +14,22 @@ use crate::configuration::{LocationSearcherConfig, Settings};
 use crate::location_details_finder::LocationDetailsCache;
 use crate::text_search::LocationSearchApiResponseCache;
 
+#[derive(Clone)]
 pub struct Searcher {
-    pub(crate) text_search_cache: Arc<dyn LocationSearchApiResponseCache>,
-    pub(crate) location_details_cache: Arc<dyn LocationDetailsCache>,
+    pub(crate) cache: Arc<dyn Cache>,
     config: LocationSearcherConfig,
 }
 
+pub trait Cache: LocationSearchApiResponseCache + LocationDetailsCache {}
+
+impl<T> Cache for T where T: LocationDetailsCache + LocationSearchApiResponseCache {}
+
 impl Searcher {
-    pub fn new(
-        text_search_cache: Arc<dyn LocationSearchApiResponseCache>,
-        location_details_cache: Arc<dyn LocationDetailsCache>,
-    ) -> anyhow::Result<Self> {
+    pub fn new(cache: Arc<dyn Cache>) -> anyhow::Result<Self> {
         let settings = Settings::parse()?;
 
         Ok(Searcher {
-            text_search_cache,
-            location_details_cache,
+            cache,
             config: settings.location_searcher,
         })
     }

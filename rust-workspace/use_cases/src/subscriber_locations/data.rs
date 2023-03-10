@@ -1,4 +1,3 @@
-use crate::search_for_locations::ExternalLocationId;
 use uuid::Uuid;
 
 pub struct LocationInput<T: Clone> {
@@ -19,6 +18,18 @@ impl<T: Clone> LocationInput<T> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct LocationId(Uuid);
+
+impl LocationId {
+    pub fn into_inner(self) -> Uuid {
+        self.0
+    }
+}
+
+impl From<Uuid> for LocationId {
+    fn from(value: Uuid) -> Self {
+        LocationId(value)
+    }
+}
 
 pub struct LocationWithId {
     pub id: LocationId,
