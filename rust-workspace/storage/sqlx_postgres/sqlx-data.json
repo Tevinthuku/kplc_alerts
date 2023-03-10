@@ -103,6 +103,32 @@
     },
     "query": "\n            INSERT INTO location.area(name, county_id)\n            SELECT * FROM UNNEST($1::text[], $2::uuid[]) ON CONFLICT DO NOTHING\n            "
   },
+  "6917a2f9261e39077dbb7440acd065039ce78ce4351de1601d8eb4486e784baf": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "external_id",
+          "ordinal": 1,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "TextArray"
+        ]
+      }
+    },
+    "query": "\n            SELECT id, external_id\n            FROM location.locations WHERE external_id = ANY($1)\n            "
+  },
   "6ba4a55e12e4c33b26834d3d5c15347356ea21dc881e8e0fee79c304bc143dff": {
     "describe": {
       "columns": [
@@ -170,6 +196,22 @@
       }
     },
     "query": "\n            INSERT INTO location.locations (name, external_id, address, sanitized_address, external_api_response) \n            VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING\n            "
+  },
+  "f1e09aa7f911fd88b4fee2f19bbabac01ca1e50277c747a2acb99c4579e113de": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "TextArray",
+          "TextArray",
+          "TextArray",
+          "TextArray",
+          "JsonbArray"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO location.locations (name, external_id, address, sanitized_address, external_api_response) \n            SELECT * FROM UNNEST ($1::text[], $2::text[], $3::text[], $4::text[], $5::jsonb[]) ON CONFLICT DO NOTHING\n            "
   },
   "f3ac55e2b438d6ca309cb1fe35a2ebc56ecd131c6985e2090391c4e9285519f3": {
     "describe": {

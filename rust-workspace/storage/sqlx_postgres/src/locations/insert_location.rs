@@ -7,6 +7,12 @@ use sqlx::types::Json;
 
 pub struct NonAcronymString(String);
 
+impl NonAcronymString {
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
 impl From<String> for NonAcronymString {
     fn from(value: String) -> Self {
         let acronym_map = HashMap::from([
