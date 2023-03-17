@@ -7,5 +7,6 @@ members = [
     "http_server",
     "entities",
     "location_searcher",
-    "shared_kernel"
+    "shared_kernel",
+    "background_workers/*"
 ]

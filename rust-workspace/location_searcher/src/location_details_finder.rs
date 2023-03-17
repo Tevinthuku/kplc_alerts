@@ -125,7 +125,6 @@ impl TryFrom<LocationInputAndCacheResultsWrapper> for LocationInput<LocationId> 
 
 async fn get_place_details(url: Url) -> anyhow::Result<LocationDetailsInput> {
     #[derive(Deserialize, Debug, Clone)]
-
     struct ResponseResult {
         name: String,
         formatted_address: String,
