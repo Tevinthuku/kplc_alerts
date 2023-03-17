@@ -4,6 +4,7 @@ use crate::use_case_app_container::UseCaseAppContainer;
 use actix_web::{web, App, HttpServer};
 use anyhow::Context;
 use location_searcher::searcher::Searcher;
+use producer::producer::Producer;
 use sqlx_postgres::repository::Repository;
 use use_cases::AppImpl;
 
@@ -16,9 +17,13 @@ mod use_case_app_container;
 async fn main() -> anyhow::Result<()> {
     let repository = Repository::new().await?;
     let location_searcher = Searcher::new(Arc::new(repository.clone()))?;
-
+    let producer = Producer::new().await?;
     HttpServer::new(move || {
-        let app = AppImpl::new(repository.clone(), location_searcher.clone());
+        let app = AppImpl::new(
+            repository.clone(),
+            location_searcher.clone(),
+            producer.clone(),
+        );
         let app_container = UseCaseAppContainer::new(app);
         App::new()
             .configure(routes::config)

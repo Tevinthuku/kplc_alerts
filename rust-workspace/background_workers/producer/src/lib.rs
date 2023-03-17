@@ -1,2 +1,2 @@
 mod location_details;
-mod producer;
+pub mod producer;

@@ -1,32 +1,21 @@
-use anyhow::{anyhow, Context};
-use async_once::AsyncOnce;
+use anyhow::Context;
 use celery::export::async_trait;
 use celery::prelude::*;
 use entities::locations::ExternalLocationId;
 use entities::locations::LocationInput;
-use entities::subscriptions::{AffectedSubscriber, SubscriberId};
+use entities::subscriptions::SubscriberId;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use lazy_static::lazy_static;
-use redis::{AsyncCommands, Commands};
+use secrecy::ExposeSecret;
 use shared_kernel::http_client::HttpClient;
-use sqlx_postgres::repository::Repository;
-use std::collections::VecDeque;
-use std::sync::Arc;
 use url::Url;
-
-lazy_static! {
-    static ref REPO: AsyncOnce<Repository> = AsyncOnce::new(async {
-        Repository::new()
-            .await
-            .expect("Repository to be initialzed")
-    });
-}
 
 use serde::Deserialize;
 use serde::Serialize;
 use use_cases::subscriber_locations::data::LocationId;
 use uuid::Uuid;
+
+use crate::configuration::{REPO, SETTINGS_CONFIG};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum StatusCode {
@@ -56,10 +45,10 @@ pub async fn subscribe_to_primary_location(
     let repo = REPO.get().await;
     repo.subscribe_to_location(subscriber, location_id)
         .await
-        .map_err(|err| TaskError::ExpectedError(format!("{err}")))
+        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))
 }
 
-#[celery::task(max_retries = 200)]
+#[celery::task(max_retries = 200, retry_for_unexpected = false, on_failure = failure_callback)]
 pub async fn get_and_subscribe_to_nearby_location(
     external_id: ExternalLocationId,
     subscriber_primary_location_id: Uuid,
@@ -68,38 +57,10 @@ pub async fn get_and_subscribe_to_nearby_location(
     let id = get_location_from_cache_or_api(external_id).await?;
     repo.subscribe_to_adjuscent_location(subscriber_primary_location_id, id)
         .await
-        .map_err(|err| TaskError::ExpectedError(format!("{err}")))
-}
-async fn save_location_returning_id(location: LocationInput) -> TaskResult<LocationId> {
-    let repo = REPO.get().await;
-    let external_id = location.external_id.clone();
-    repo.insert_location(location)
-        .await
-        .map_err(|err| TaskError::ExpectedError(format!("{err}")))?;
-    let location_id = repo
-        .find_location_id(external_id)
-        .await
-        .map_err(|err| TaskError::ExpectedError(format!("{err}")))?;
-    location_id
-        .ok_or("Location not found")
-        .map_err(|err| TaskError::ExpectedError(err.to_string()))
+        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))
 }
 
-const PLACE_DETAILS_PATH: &str = "/place/details/json";
-
-fn generate_url(id: ExternalLocationId) -> anyhow::Result<Url> {
-    Url::parse_with_params(
-        &format!(
-            "{}{}",
-            "https://maps.googleapis.com/maps/api", PLACE_DETAILS_PATH
-        ),
-        &[("key", ""), ("place_id", &id.inner())],
-    )
-    .context("Failed to parse Url")
-}
-
-// TODO: Instead of just passing the URL, maybe pass a struct that has both URL and ExternalId
-#[celery::task(max_retries = 200, bind = true)]
+#[celery::task(max_retries = 200, bind = true, retry_for_unexpected = false, on_failure = failure_callback)]
 pub async fn fetch_and_subscribe_to_locations(
     task: &Self,
     primary_location: ExternalLocationId,
@@ -131,12 +92,48 @@ pub async fn fetch_and_subscribe_to_locations(
     Ok(())
 }
 
+async fn save_location_returning_id(location: LocationInput) -> TaskResult<LocationId> {
+    let repo = REPO.get().await;
+    let external_id = location.external_id.clone();
+    repo.insert_location(location)
+        .await
+        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))?;
+    let location_id = repo
+        .find_location_id(external_id)
+        .await
+        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))?;
+    location_id
+        .ok_or("Location not found")
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))
+}
+
+async fn failure_callback<T: Task>(task: &T, err: &TaskError) {
+    match err {
+        TaskError::TimeoutError => println!("Oops! Task {} timed out!", task.name()),
+        _ => println!("Hmm task {} failed with {:?}", task.name(), err),
+    };
+}
+
+const PLACE_DETAILS_PATH: &str = "/place/details/json";
+
+fn generate_url(id: ExternalLocationId) -> anyhow::Result<Url> {
+    let host = &SETTINGS_CONFIG.host;
+    Url::parse_with_params(
+        &format!("{}{}", host, PLACE_DETAILS_PATH),
+        &[
+            ("key", SETTINGS_CONFIG.api_key.expose_secret()),
+            ("place_id", &id.inner()),
+        ],
+    )
+    .context("Failed to parse Url")
+}
+
 async fn get_location_from_cache_or_api(external_id: ExternalLocationId) -> TaskResult<LocationId> {
     let repo = REPO.get().await;
     let item = repo
         .find_location_id(external_id.clone())
         .await
-        .map_err(|err| TaskError::ExpectedError(format!("{err}")))?;
+        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))?;
 
     if let Some(item) = item {
         return Ok(item);
@@ -166,7 +163,7 @@ async fn get_place_details(url: Url) -> TaskResult<LocationInput> {
         .await
         .map_err(|err| TaskError::ExpectedError(format!("{err}")))?;
     let response: Response = serde_json::from_value(result.clone())
-        .with_unexpected_err(|| format!("Invalid response {result:?}"))?;
+        .with_expected_err(|| format!("Invalid response {result:?}"))?;
 
     if response.status.is_cacheable() {
         if let Some(response_result) = response.result {

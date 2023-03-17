@@ -6,13 +6,14 @@ use entities::subscriptions::SubscriberId;
 use std::collections::HashMap;
 use tasks::location_details::fetch_and_subscribe_to_locations;
 use use_cases::subscriber_locations::data::{LocationId, LocationInput};
-use use_cases::subscriber_locations::subscribe_to_location::LocationDetailsFinder;
+use use_cases::subscriber_locations::subscribe_to_location::LocationSubscriber;
 
-impl Producer {
-    async fn get_location_details(
+#[async_trait]
+impl LocationSubscriber for Producer {
+    async fn subscribe_to_location(
         &self,
-        subscriber_id: SubscriberId,
         location: LocationInput<ExternalLocationId>,
+        subscriber_id: SubscriberId,
     ) -> anyhow::Result<()> {
         self.app
             .send_task(fetch_and_subscribe_to_locations::new(

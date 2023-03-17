@@ -3,7 +3,7 @@ use search_for_locations::{
     LocationSearchApi, LocationSearchInteractor, LocationSearchInteractorImpl,
 };
 use subscriber_locations::subscribe_to_location::{
-    LocationDetailsFinder, SubscribeToLocationImpl, SubscribeToLocationInteractor,
+    LocationSubscriber, SubscribeToLocationImpl, SubscribeToLocationInteractor,
 };
 
 use crate::authentication::{AuthenticationInteractor, AuthenticationInteractorImpl};
@@ -44,17 +44,23 @@ impl App for AppImpl {
     }
 }
 
-pub trait LocationsApi: LocationSearchApi + LocationDetailsFinder {}
+pub trait LocationsApi: LocationSearchApi {}
 
-impl<T> LocationsApi for T where T: LocationSearchApi + LocationDetailsFinder {}
+impl<T> LocationsApi for T where T: LocationSearchApi {}
 
 impl AppImpl {
-    pub fn new<R: Repository + 'static, L: LocationsApi + 'static>(
+    pub fn new<
+        R: Repository + 'static,
+        L: LocationsApi + 'static,
+        T: LocationSubscriber + 'static,
+    >(
         repo: R,
         location_searcher: L,
+        location_subscriber: T,
     ) -> Self {
         let repository = Arc::new(repo);
         let locations_api = Arc::new(location_searcher);
+        let location_subscriber = Arc::new(location_subscriber);
         let subscriber_authentication_checker =
             Arc::new(SubscriberResolverInteractorImpl::new(repository.clone()));
         let authentication_interactor = AuthenticationInteractorImpl::new(repository.clone());
@@ -63,11 +69,8 @@ impl AppImpl {
             subscriber_authentication_checker.clone(),
         );
 
-        let subscribe_to_locations_interactor = SubscribeToLocationImpl::new(
-            repository,
-            subscriber_authentication_checker,
-            locations_api,
-        );
+        let subscribe_to_locations_interactor =
+            SubscribeToLocationImpl::new(subscriber_authentication_checker, location_subscriber);
 
         Self {
             authentication: Arc::new(authentication_interactor),

@@ -5,6 +5,7 @@ use anyhow::Context;
 use celery::Celery;
 use std::sync::Arc;
 
+pub mod configuration;
 pub mod location_details;
 
 const QUEUE_NAME: &str = "celery";
@@ -18,7 +19,7 @@ pub async fn app() -> anyhow::Result<Arc<Celery>> {
         ],
         task_routes = [
             "*" => QUEUE_NAME,
-            "fetch_location_details" => "fetch_location_details"
+            "fetch_and_subscribe_to_locations" => "fetch_and_subscribe_to_locations"
         ],
         prefetch_count = 2,
         heartbeat = Some(10)
