@@ -7,4 +7,4 @@ database:
   require_ssl: false
 location_searcher:
   host: "https://maps.googleapis.com/maps/api"
-  api_key: "AIzaSyBqi7hghWlk_EM7s6ESyVBo0TekxiHoOGg"
+  api_key: ""
