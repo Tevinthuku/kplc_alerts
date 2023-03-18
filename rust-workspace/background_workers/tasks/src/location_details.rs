@@ -15,7 +15,7 @@ use serde::Serialize;
 use use_cases::subscriber_locations::data::LocationId;
 use uuid::Uuid;
 
-use crate::configuration::{REPO, SETTINGS_CONFIG};
+use crate::{configuration::{REPO, SETTINGS_CONFIG}, callbacks::failure_callback};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum StatusCode {
@@ -107,12 +107,7 @@ async fn save_location_returning_id(location: LocationInput) -> TaskResult<Locat
         .map_err(|err| TaskError::UnexpectedError(err.to_string()))
 }
 
-async fn failure_callback<T: Task>(task: &T, err: &TaskError) {
-    match err {
-        TaskError::TimeoutError => println!("Oops! Task {} timed out!", task.name()),
-        _ => println!("Hmm task {} failed with {:?}", task.name(), err),
-    };
-}
+
 
 const PLACE_DETAILS_PATH: &str = "/place/details/json";
 

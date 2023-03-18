@@ -44,33 +44,27 @@ impl App for AppImpl {
     }
 }
 
-pub trait LocationsApi: LocationSearchApi {}
+pub trait LocationsApi: LocationSearchApi + LocationSubscriber {}
 
-impl<T> LocationsApi for T where T: LocationSearchApi {}
+impl<T> LocationsApi for T where T: LocationSearchApi + LocationSubscriber {}
 
 impl AppImpl {
-    pub fn new<
-        R: Repository + 'static,
-        L: LocationsApi + 'static,
-        T: LocationSubscriber + 'static,
-    >(
+    pub fn new<R: Repository + 'static, L: LocationsApi + 'static>(
         repo: R,
-        location_searcher: L,
-        location_subscriber: T,
+        location_api: L,
     ) -> Self {
         let repository = Arc::new(repo);
-        let locations_api = Arc::new(location_searcher);
-        let location_subscriber = Arc::new(location_subscriber);
+        let location_api = Arc::new(location_api);
         let subscriber_authentication_checker =
             Arc::new(SubscriberResolverInteractorImpl::new(repository.clone()));
-        let authentication_interactor = AuthenticationInteractorImpl::new(repository.clone());
+        let authentication_interactor = AuthenticationInteractorImpl::new(repository);
         let location_searcher_interactor = LocationSearchInteractorImpl::new(
-            locations_api.clone(),
+            location_api.clone(),
             subscriber_authentication_checker.clone(),
         );
 
         let subscribe_to_locations_interactor =
-            SubscribeToLocationImpl::new(subscriber_authentication_checker, location_subscriber);
+            SubscribeToLocationImpl::new(subscriber_authentication_checker, location_api);
 
         Self {
             authentication: Arc::new(authentication_interactor),

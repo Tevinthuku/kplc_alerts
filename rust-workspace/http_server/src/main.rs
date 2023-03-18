@@ -16,14 +16,9 @@ mod use_case_app_container;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let repository = Repository::new().await?;
-    let location_searcher = Searcher::new(Arc::new(repository.clone()))?;
     let producer = Producer::new().await?;
     HttpServer::new(move || {
-        let app = AppImpl::new(
-            repository.clone(),
-            location_searcher.clone(),
-            producer.clone(),
-        );
+        let app = AppImpl::new(repository.clone(), producer.clone());
         let app_container = UseCaseAppContainer::new(app);
         App::new()
             .configure(routes::config)

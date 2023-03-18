@@ -5,9 +5,11 @@ use location_searcher::text_search::{LocationSearchApiResponse, LocationSearchAp
 use sqlx::types::Json;
 use url::Url;
 
-#[async_trait]
-impl LocationSearchApiResponseCache for Repository {
-    async fn get(&self, key: &Url) -> anyhow::Result<Option<LocationSearchApiResponse>> {
+impl Repository {
+    pub async fn get_cached_text_search_response(
+        &self,
+        key: &Url,
+    ) -> anyhow::Result<Option<LocationSearchApiResponse>> {
         struct Row {
             value: Json<LocationSearchApiResponse>,
         }
@@ -29,7 +31,11 @@ impl LocationSearchApiResponseCache for Repository {
         Ok(None)
     }
 
-    async fn set(&self, key: &Url, response: &serde_json::Value) -> anyhow::Result<()> {
+    pub async fn set_cached_text_search_response(
+        &self,
+        key: &Url,
+        response: &serde_json::Value,
+    ) -> anyhow::Result<()> {
         let _ = sqlx::query!(
             r#"
             INSERT INTO location.location_search_cache ( key, value )
@@ -43,5 +49,16 @@ impl LocationSearchApiResponseCache for Repository {
         .context("Failed to save response in cache")?;
 
         Ok(())
+    }
+}
+
+#[async_trait]
+impl LocationSearchApiResponseCache for Repository {
+    async fn get(&self, key: &Url) -> anyhow::Result<Option<LocationSearchApiResponse>> {
+        self.get_cached_text_search_response(key).await
+    }
+
+    async fn set(&self, key: &Url, response: &serde_json::Value) -> anyhow::Result<()> {
+        self.set_cached_text_search_response(key, response).await
     }
 }
