@@ -3,7 +3,6 @@ use std::sync::Arc;
 use crate::use_case_app_container::UseCaseAppContainer;
 use actix_web::{web, App, HttpServer};
 use anyhow::Context;
-use location_searcher::searcher::Searcher;
 use producer::producer::Producer;
 use sqlx_postgres::repository::Repository;
 use use_cases::AppImpl;

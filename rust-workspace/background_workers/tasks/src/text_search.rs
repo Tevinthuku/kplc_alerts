@@ -3,12 +3,13 @@ use celery::{prelude::TaskError, task::TaskResult};
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use shared_kernel::http_client::HttpClient;
+use sqlx_postgres::cache::location_search::LocationSearchApiResponse;
+use sqlx_postgres::cache::location_search::StatusCode;
 use url::Url;
 
 use crate::{
     callbacks::failure_callback,
     configuration::{REPO, SETTINGS_CONFIG},
-    location_details::StatusCode,
 };
 
 pub fn generate_search_url(text: String) -> anyhow::Result<Url> {
@@ -24,32 +25,6 @@ pub fn generate_search_url(text: String) -> anyhow::Result<Url> {
         ],
     )
     .context("Failed to parse url")
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct MatchedSubstrings {
-    length: usize,
-    offset: usize,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct LocationSearchApiResponsePrediction {
-    description: String,
-    matched_substrings: Vec<MatchedSubstrings>,
-    place_id: String,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct LocationSearchApiResponse {
-    status: StatusCode,
-    predictions: Vec<LocationSearchApiResponsePrediction>,
-    error_message: Option<String>,
-}
-
-impl LocationSearchApiResponse {
-    fn is_cacheable(&self) -> bool {
-        matches!(self.status, StatusCode::OK | StatusCode::ZERORESULTS)
-    }
 }
 
 #[celery::task(max_retries = 200, retry_for_unexpected = false, on_failure = failure_callback)]

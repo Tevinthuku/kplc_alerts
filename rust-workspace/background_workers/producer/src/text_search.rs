@@ -27,7 +27,14 @@ impl LocationSearchApi for Producer {
         let url = generate_search_url(text.clone())?;
         let cached_response = repository.get_cached_text_search_response(&url).await?;
         if let Some(response) = cached_response {
-            return Ok(response.into());
+            return Ok(response
+                .predictions
+                .into_iter()
+                .map(|prediction| LocationApiResponse {
+                    id: prediction.place_id.into(),
+                    name: prediction.description,
+                })
+                .collect());
         }
 
         self.app

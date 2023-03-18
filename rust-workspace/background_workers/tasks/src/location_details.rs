@@ -12,31 +12,14 @@ use url::Url;
 
 use serde::Deserialize;
 use serde::Serialize;
+use sqlx_postgres::cache::location_search::StatusCode;
 use use_cases::subscriber_locations::data::LocationId;
 use uuid::Uuid;
 
-use crate::{configuration::{REPO, SETTINGS_CONFIG}, callbacks::failure_callback};
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub enum StatusCode {
-    OK,
-    #[serde(rename = "ZERO_RESULTS")]
-    ZERORESULTS,
-    #[serde(rename = "INVALID_REQUEST")]
-    INVALIDREQUEST,
-    #[serde(rename = "OVER_QUERY_LIMIT")]
-    OVERQUERYLIMIT,
-    #[serde(rename = "REQUEST_DENIED")]
-    REQUESTDENIED,
-    #[serde(rename = "UNKNOWN_ERROR")]
-    UNKNOWNERROR,
-}
-
-impl StatusCode {
-    pub fn is_cacheable(&self) -> bool {
-        matches!(self, StatusCode::OK | StatusCode::ZERORESULTS)
-    }
-}
+use crate::{
+    callbacks::failure_callback,
+    configuration::{REPO, SETTINGS_CONFIG},
+};
 
 pub async fn subscribe_to_primary_location(
     location_id: LocationId,
@@ -106,8 +89,6 @@ async fn save_location_returning_id(location: LocationInput) -> TaskResult<Locat
         .ok_or("Location not found")
         .map_err(|err| TaskError::UnexpectedError(err.to_string()))
 }
-
-
 
 const PLACE_DETAILS_PATH: &str = "/place/details/json";
 
