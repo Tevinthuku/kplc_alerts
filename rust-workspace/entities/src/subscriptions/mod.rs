@@ -22,8 +22,8 @@ pub enum AffectedSubscriber {
 impl AffectedSubscriber {
     pub fn id(&self) -> SubscriberId {
         match self {
-            AffectedSubscriber::DirectlyAffected(subscriber) => subscriber.clone(),
-            AffectedSubscriber::PotentiallyAffected(subscriber) => subscriber.clone(),
+            AffectedSubscriber::DirectlyAffected(subscriber) => *subscriber,
+            AffectedSubscriber::PotentiallyAffected(subscriber) => *subscriber,
         }
     }
 }
