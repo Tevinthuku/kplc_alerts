@@ -56,7 +56,7 @@ impl SubscriberRepo for Repository {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 struct SearcheableCandidate(String);
 
 impl ToString for SearcheableCandidate {
@@ -71,8 +71,8 @@ impl AsRef<str> for SearcheableCandidate {
     }
 }
 
-impl From<&String> for SearcheableCandidate {
-    fn from(value: &String) -> Self {
+impl From<&str> for SearcheableCandidate {
+    fn from(value: &str) -> Self {
         let value = value.trim().replace(' ', " & ");
         SearcheableCandidate(value)
     }
@@ -85,6 +85,11 @@ struct DbLocationSearchResults {
     id: uuid::Uuid,
 }
 
+struct SubscriberWithLocation {
+    subscriber: Uuid,
+    location: Uuid,
+}
+
 impl Repository {
     async fn get_location_subscribers(
         &self,
@@ -95,12 +100,19 @@ impl Repository {
 
         let mapping_of_searcheable_candidate_to_candidate = candidates
             .iter()
-            .map(|candidate| (SearcheableCandidate::from(candidate), candidate.as_ref()))
+            .map(|candidate| {
+                (
+                    SearcheableCandidate::from(candidate.as_ref()),
+                    candidate.as_ref(),
+                )
+            })
             .collect::<HashMap<_, _>>();
 
-        let searcheable_candidates = mapping_of_searcheable_candidate_to_candidate.keys();
+        let mapping_of_searcheable_candidate_to_candidate_copy =
+            mapping_of_searcheable_candidate_to_candidate.clone();
 
-        let searcheable_candidates = searcheable_candidates
+        let searcheable_candidates = mapping_of_searcheable_candidate_to_candidate
+            .keys()
             .map(|candidate| candidate.as_ref())
             .collect_vec();
 
@@ -111,6 +123,32 @@ impl Repository {
                 &mapping_of_searcheable_candidate_to_candidate,
             )
             .await?;
+
+        let area = area.name.split(',').collect_vec();
+
+        let area_mapping = area.iter().map(|area_name_candidate| {
+            (
+                SearcheableCandidate::from(*area_name_candidate),
+                *area_name_candidate,
+            )
+        });
+
+        let area_as_searcheable = area
+            .iter()
+            .map(|area| SearcheableCandidate::from(*area))
+            .map(|area| area.to_string());
+
+        let searcheable_candidates = searcheable_candidates
+            .into_iter()
+            .map(|area| area.to_string())
+            .chain(area_as_searcheable)
+            .collect_vec();
+
+        let mapping_of_searcheable_candidate_to_candidate =
+            mapping_of_searcheable_candidate_to_candidate_copy
+                .into_iter()
+                .chain(area_mapping)
+                .collect();
 
         let potentially_affected_subscribers = self
             .nearby_locations_searcher(
@@ -159,17 +197,15 @@ impl Repository {
             .map(|location| location.id)
             .collect_vec();
 
-        let primary_affected_subscribers = sqlx::query!(
-            "
-            SELECT subscriber_id, location_id FROM location.subscriber_locations WHERE location_id = ANY($1)
-            ",
-            &location_ids[..]
-        ).fetch_all(pool).await.context("Failed to get subscribers subscribed to primary locations")?;
-
-        let directly_affected_subscribers = primary_affected_subscribers
-            .into_iter()
-            .map(|record| (record.subscriber_id, record.location_id))
-            .into_group_map();
+        let directly_affected_subscribers = self
+            .get_direct_subscribers_with_locations(&location_ids)
+            .await
+            .map(|results| {
+                results
+                    .into_iter()
+                    .map(|data| (data.subscriber, data.location))
+                    .into_group_map()
+            })?;
 
         let location_ids_to_search_query = primary_locations
             .iter()
@@ -220,7 +256,7 @@ impl Repository {
 
     async fn nearby_locations_searcher(
         &self,
-        searcheable_candidates: &[&str],
+        searcheable_candidates: &[String],
         time_frame: &TimeFrame<FutureOrCurrentNairobiTZDateTime>,
         mapping_of_searcheable_candidate_to_original_candidate: &HashMap<
             SearcheableCandidate,
@@ -257,9 +293,18 @@ impl Repository {
                 &location_ids[..]
             ).fetch_all(pool).await.context("Failed to get subscribers subscribed to nearby locations")?;
 
+        let directly_affected_subscribers = self
+            .get_direct_subscribers_with_locations(&location_ids)
+            .await?;
+
         let nearby_location_subscribers = nearby_location_subscribers
             .into_iter()
             .map(|record| (record.subscriber_id, record.adjuscent_location_id))
+            .chain(
+                directly_affected_subscribers
+                    .into_iter()
+                    .map(|data| (data.subscriber, data.location)),
+            )
             .into_group_map();
 
         let nearby_location_subscribers = nearby_location_subscribers
@@ -300,7 +345,7 @@ impl Repository {
             .iter()
             .map(|(subscriber, location_ids)| {
                 let locations = location_ids
-                    .into_iter()
+                    .iter()
                     .filter_map(|location| {
                         location_ids_to_search_query
                             .get(&location)
@@ -326,5 +371,26 @@ impl Repository {
             .collect::<HashMap<_, _>>();
 
         Ok(result)
+    }
+
+    async fn get_direct_subscribers_with_locations(
+        &self,
+        location_ids: &[Uuid],
+    ) -> anyhow::Result<Vec<SubscriberWithLocation>> {
+        let pool = self.pool();
+        let primary_affected_subscribers = sqlx::query!(
+            "
+            SELECT subscriber_id, location_id FROM location.subscriber_locations WHERE location_id = ANY($1)
+            ",
+            &location_ids[..]
+        ).fetch_all(pool).await.context("Failed to get subscribers subscribed to primary locations")?;
+
+        Ok(primary_affected_subscribers
+            .into_iter()
+            .map(|record| SubscriberWithLocation {
+                subscriber: record.subscriber_id,
+                location: record.location_id,
+            })
+            .collect_vec())
     }
 }

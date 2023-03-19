@@ -103,6 +103,26 @@
     },
     "query": "\n            INSERT INTO location.line(name, area_id)\n            SELECT * FROM UNNEST($1::text[], $2::uuid[]) ON CONFLICT DO NOTHING\n            "
   },
+  "467992ee53af97d80919707996a62af6fcaafb022b1caedc58781bc294e4010e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            SELECT id FROM location.locations WHERE external_id = $1\n            "
+  },
   "4a72b917f7044f12954fc6ab789a6b5f0bf37134786858779eb91dfede1d514e": {
     "describe": {
       "columns": [
