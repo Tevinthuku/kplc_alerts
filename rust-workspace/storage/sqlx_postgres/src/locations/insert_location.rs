@@ -53,7 +53,6 @@ impl AsRef<str> for NonAcronymString {
 
 impl Repository {
     pub async fn insert_location(&self, location: LocationInput) -> anyhow::Result<()> {
-        // locations
         let pool = self.pool();
         let external_id = location.external_id.as_ref();
         let address = location.address.clone();

@@ -90,7 +90,6 @@ impl Repository {
         &self,
         area: &Area<FutureOrCurrentNairobiTZDateTime>,
     ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<AffectedLine>>> {
-        let pool = self.pool();
         let time_frame = area.time_frame.clone();
         let candidates = &area.locations;
 
