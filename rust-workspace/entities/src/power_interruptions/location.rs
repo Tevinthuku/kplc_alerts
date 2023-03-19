@@ -88,6 +88,6 @@ pub struct TimeFrame<T> {
 
 #[derive(Clone)]
 pub struct AffectedLine<T = DateTime<Tz>> {
-    line: String,
-    time_frame: TimeFrame<T>,
+    pub line: String,
+    pub time_frame: TimeFrame<T>,
 }
