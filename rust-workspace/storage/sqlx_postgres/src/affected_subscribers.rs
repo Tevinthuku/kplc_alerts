@@ -124,38 +124,15 @@ impl Repository {
             )
             .await?;
 
-        let area = area.name.split(',').collect_vec();
-
-        let area_mapping = area.iter().map(|area_name_candidate| {
-            (
-                SearcheableCandidate::from(*area_name_candidate),
-                *area_name_candidate,
-            )
-        });
-
-        let area_as_searcheable = area
-            .iter()
-            .map(|area| SearcheableCandidate::from(*area))
-            .map(|area| area.to_string());
-
-        let searcheable_candidates = searcheable_candidates
-            .into_iter()
-            .map(|area| area.to_string())
-            .chain(area_as_searcheable)
-            .collect_vec();
-
-        let mapping_of_searcheable_candidate_to_candidate =
-            mapping_of_searcheable_candidate_to_candidate_copy
-                .into_iter()
-                .chain(area_mapping)
-                .collect();
+        let area_name = area.name.clone();
 
         let potentially_affected_subscribers = self
             .nearby_locations_searcher(
-                &searcheable_candidates,
+                searcheable_candidates,
                 &time_frame,
-                &mapping_of_searcheable_candidate_to_candidate,
+                mapping_of_searcheable_candidate_to_candidate_copy,
                 mapping_of_subscriber_to_directly_affected_locations,
+                area_name,
             )
             .await?;
 
@@ -175,7 +152,7 @@ impl Repository {
         >,
     ) -> anyhow::Result<(
         HashMap<AffectedSubscriber, Vec<AffectedLine>>,
-        HashMap<uuid::Uuid, Vec<uuid::Uuid>>,
+        HashMap<Uuid, Vec<Uuid>>,
     )> {
         let pool = self.pool();
         let time_frame = TimeFrame {
@@ -256,14 +233,19 @@ impl Repository {
 
     async fn nearby_locations_searcher(
         &self,
-        searcheable_candidates: &[String],
+        searcheable_candidates: Vec<&str>,
         time_frame: &TimeFrame<FutureOrCurrentNairobiTZDateTime>,
-        mapping_of_searcheable_candidate_to_original_candidate: &HashMap<
-            SearcheableCandidate,
-            &str,
-        >,
+        mapping_of_searcheable_candidate_to_original_candidate: HashMap<SearcheableCandidate, &str>,
         mapping_of_subscriber_to_directly_affected_locations: HashMap<Uuid, Vec<Uuid>>,
+        area_name: String,
     ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<AffectedLine>>> {
+        let (mapping_of_searcheable_candidate_to_original_candidate, searcheable_candidates) =
+            include_area_name_to_searcheable_candidates(
+                searcheable_candidates,
+                mapping_of_searcheable_candidate_to_original_candidate,
+                &area_name,
+            );
+
         let pool = self.pool();
         let time_frame = TimeFrame {
             from: time_frame.from.to_date_time(),
@@ -396,4 +378,40 @@ impl Repository {
             })
             .collect_vec())
     }
+}
+
+fn include_area_name_to_searcheable_candidates<'a>(
+    searcheable_candidates: Vec<&str>,
+    mapping_of_searcheable_candidate_to_original_candidate: HashMap<SearcheableCandidate, &'a str>,
+    area_name: &'a str,
+) -> (HashMap<SearcheableCandidate, &'a str>, Vec<String>) {
+    let area = area_name.split(',').collect_vec();
+
+    let area_mapping = area.iter().map(|area_name_candidate| {
+        (
+            SearcheableCandidate::from(*area_name_candidate),
+            *area_name_candidate,
+        )
+    });
+
+    let mapping_of_searcheable_candidate_to_original_candidate =
+        mapping_of_searcheable_candidate_to_original_candidate
+            .into_iter()
+            .chain(area_mapping)
+            .collect::<HashMap<_, _>>();
+
+    let area_as_searcheable = area
+        .iter()
+        .map(|area| SearcheableCandidate::from(*area))
+        .map(|area| area.to_string());
+
+    let searcheable_candidates = searcheable_candidates
+        .into_iter()
+        .map(|area| area.to_string())
+        .chain(area_as_searcheable)
+        .collect_vec();
+    (
+        mapping_of_searcheable_candidate_to_original_candidate,
+        searcheable_candidates,
+    )
 }
