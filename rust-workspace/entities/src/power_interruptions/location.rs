@@ -80,13 +80,13 @@ pub struct Area<T> {
 
 pub struct ImportInput(pub HashMap<Url, Vec<Region<FutureOrCurrentNairobiTZDateTime>>>);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TimeFrame<T> {
     pub from: T,
     pub to: T,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AffectedLine<T = DateTime<Tz>> {
     pub line: String,
     pub time_frame: TimeFrame<T>,

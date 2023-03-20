@@ -309,7 +309,7 @@ impl Repository {
 
         let nearby_location_subscribers = nearby_location_subscribers
             .into_iter()
-            .map(|(subscriber_id, nearby_location_ids)| {
+            .filter_map(|(subscriber_id, nearby_location_ids)| {
                 let primary_subscribers = mapping_of_subscriber_to_directly_affected_locations
                     .get(&subscriber_id)
                     .cloned()
@@ -321,8 +321,11 @@ impl Repository {
                     .difference(&HashSet::from_iter(primary_subscribers.into_iter()))
                     .cloned()
                     .collect();
-
-                (subscriber_id, locations_not_in_primary_locations)
+                if locations_not_in_primary_locations.is_empty() {
+                    None
+                } else {
+                    Some((subscriber_id, locations_not_in_primary_locations))
+                }
             })
             .collect::<HashMap<_, _>>();
 

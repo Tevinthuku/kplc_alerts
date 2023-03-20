@@ -122,12 +122,14 @@ impl SubscribeToLocationRepo for Repository {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use entities::{
         locations::{ExternalLocationId, LocationInput},
         power_interruptions::location::{Area, County, NairobiTZDateTime, Region, TimeFrame},
         subscriptions::{
             details::{SubscriberDetails, SubscriberExternalId},
-            SubscriberId,
+            AffectedSubscriber, SubscriberId,
         },
     };
     use serde_json::Value;
@@ -211,7 +213,11 @@ mod tests {
             .await
             .unwrap();
         println!("{results:?}");
-        assert!(!results.is_empty())
+        assert!(!results.is_empty());
+        let key = AffectedSubscriber::DirectlyAffected(subscriber_id);
+        assert!(results.contains_key(&key));
+        let value = results.get(&key).unwrap().first().unwrap();
+        assert_eq!(&value.line, "Garden City Mall")
     }
 
     #[tokio::test]
@@ -240,6 +246,13 @@ mod tests {
             .get_affected_subscribers(&[generate_region()])
             .await
             .unwrap();
-        assert!(!results.is_empty())
+
+        println!("{results:?}");
+
+        assert!(!results.is_empty());
+        let key = AffectedSubscriber::PotentiallyAffected(subscriber_id);
+        assert!(results.contains_key(&key));
+        let value = results.get(&key).unwrap().first().unwrap();
+        assert_eq!(&value.line, "Garden City") // The area name
     }
 }
