@@ -9,6 +9,7 @@ use entities::{
 };
 use futures::{stream::FuturesUnordered, StreamExt};
 use itertools::Itertools;
+use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use use_cases::notifications::notify_subscribers::SubscriberRepo;
 use uuid::Uuid;
@@ -127,7 +128,7 @@ impl Repository {
         let area_name = area.name.clone();
 
         let potentially_affected_subscribers = self
-            .nearby_locations_searcher(
+            .potentially_affected_subscribers(
                 searcheable_candidates,
                 &time_frame,
                 mapping_of_searcheable_candidate_to_candidate_copy,
@@ -231,7 +232,7 @@ impl Repository {
         Ok((result, directly_affected_subscribers))
     }
 
-    async fn nearby_locations_searcher(
+    async fn potentially_affected_subscribers(
         &self,
         searcheable_candidates: Vec<&str>,
         time_frame: &TimeFrame<FutureOrCurrentNairobiTZDateTime>,
@@ -251,6 +252,7 @@ impl Repository {
             from: time_frame.from.to_date_time(),
             to: time_frame.to.to_date_time(),
         };
+
         let nearby_locations = sqlx::query_as::<_, DbLocationSearchResults>(
             "
                 SELECT * FROM location.search_locations_secondary_text($1::text[])
@@ -260,56 +262,21 @@ impl Repository {
         .fetch_all(pool)
         .await
         .context("Failed to get nearby location search results from db")?;
+
         let location_ids = nearby_locations
             .iter()
             .map(|location| location.id)
             .collect_vec();
 
-        // TODO: Set search path on pool;
-        let nearby_location_subscribers = sqlx::query!(
-            "
-            SELECT subscriber_id, adjuscent_location_id FROM location.adjuscent_locations 
-            INNER JOIN location.subscriber_locations ON location.adjuscent_locations.initial_location_id = location.subscriber_locations.id 
-            WHERE location.adjuscent_locations.adjuscent_location_id = ANY($1)
-            ",
-                &location_ids[..]
-            ).fetch_all(pool).await.context("Failed to get subscribers subscribed to nearby locations")?;
-
-        let directly_affected_subscribers = self
-            .get_direct_subscribers_with_locations(&location_ids)
+        let potentially_affected_subscribers = self
+            .get_potentially_affected_subscribers(pool, &location_ids)
             .await?;
 
-        let nearby_location_subscribers = nearby_location_subscribers
-            .into_iter()
-            .map(|record| (record.subscriber_id, record.adjuscent_location_id))
-            .chain(
-                directly_affected_subscribers
-                    .into_iter()
-                    .map(|data| (data.subscriber, data.location)),
-            )
-            .into_group_map();
-
-        let nearby_location_subscribers = nearby_location_subscribers
-            .into_iter()
-            .filter_map(|(subscriber_id, nearby_location_ids)| {
-                let primary_subscribers = mapping_of_subscriber_to_directly_affected_locations
-                    .get(&subscriber_id)
-                    .cloned()
-                    .unwrap_or_default();
-                let nearby_location_ids: HashSet<_> =
-                    HashSet::from_iter(nearby_location_ids.into_iter());
-
-                let locations_not_in_primary_locations: Vec<_> = nearby_location_ids
-                    .difference(&HashSet::from_iter(primary_subscribers.into_iter()))
-                    .cloned()
-                    .collect();
-                if locations_not_in_primary_locations.is_empty() {
-                    None
-                } else {
-                    Some((subscriber_id, locations_not_in_primary_locations))
-                }
-            })
-            .collect::<HashMap<_, _>>();
+        let potentially_affected_subscribers =
+            filter_out_directly_affected_subscriber_locations_from_potentially_affected(
+                mapping_of_subscriber_to_directly_affected_locations,
+                potentially_affected_subscribers,
+            );
 
         let location_ids_to_search_query = nearby_locations
             .iter()
@@ -326,7 +293,7 @@ impl Repository {
                     )
                 })
                 .collect::<HashMap<_, _>>();
-        let result = nearby_location_subscribers
+        let result = potentially_affected_subscribers
             .iter()
             .map(|(subscriber, location_ids)| {
                 let locations = location_ids
@@ -356,6 +323,40 @@ impl Repository {
             .collect::<HashMap<_, _>>();
 
         Ok(result)
+    }
+
+    async fn get_potentially_affected_subscribers(
+        &self,
+        pool: &PgPool,
+        location_ids: &Vec<Uuid>,
+    ) -> anyhow::Result<HashMap<Uuid, Vec<Uuid>>> {
+        // TODO: Set search path on pool;
+        let potentially_affected_subscribers = sqlx::query!(
+            "
+            SELECT subscriber_id, adjuscent_location_id FROM location.adjuscent_locations 
+            INNER JOIN location.subscriber_locations ON location.adjuscent_locations.initial_location_id = location.subscriber_locations.id 
+            WHERE location.adjuscent_locations.adjuscent_location_id = ANY($1)
+            ",
+                &location_ids[..]
+            ).fetch_all(pool).await.context("Failed to get subscribers subscribed to nearby locations")?;
+
+        /// We are still getting direct subscriber locations
+        /// because some subscribers might be directly subscribed to the location
+        /// however, we are still marking them as PottentiallyAffected because
+        /// we scanned the text in the API-Response via `search_locations_secondary_text()`
+        let directly_affected_subscribers = self
+            .get_direct_subscribers_with_locations(&location_ids)
+            .await?;
+
+        Ok(potentially_affected_subscribers
+            .into_iter()
+            .map(|record| (record.subscriber_id, record.adjuscent_location_id))
+            .chain(
+                directly_affected_subscribers
+                    .into_iter()
+                    .map(|data| (data.subscriber, data.location)),
+            )
+            .into_group_map())
     }
 
     async fn get_direct_subscribers_with_locations(
@@ -414,6 +415,33 @@ fn include_area_name_to_searcheable_candidates<'a>(
         mapping_of_searcheable_candidate_to_original_candidate,
         searcheable_candidates,
     )
+}
+
+fn filter_out_directly_affected_subscriber_locations_from_potentially_affected(
+    mapping_of_subscriber_to_directly_affected_locations: HashMap<Uuid, Vec<Uuid>>,
+    mapping_of_subscriber_to_potentially_affected_locations: HashMap<Uuid, Vec<Uuid>>,
+) -> HashMap<Uuid, Vec<Uuid>> {
+    mapping_of_subscriber_to_potentially_affected_locations
+        .into_iter()
+        .filter_map(|(subscriber_id, nearby_location_ids)| {
+            let primary_subscribers = mapping_of_subscriber_to_directly_affected_locations
+                .get(&subscriber_id)
+                .cloned()
+                .unwrap_or_default();
+            let nearby_location_ids: HashSet<_> =
+                HashSet::from_iter(nearby_location_ids.into_iter());
+
+            let locations_not_in_primary_locations: Vec<_> = nearby_location_ids
+                .difference(&HashSet::from_iter(primary_subscribers.into_iter()))
+                .cloned()
+                .collect();
+            if locations_not_in_primary_locations.is_empty() {
+                None
+            } else {
+                Some((subscriber_id, locations_not_in_primary_locations))
+            }
+        })
+        .collect::<HashMap<_, _>>()
 }
 
 #[cfg(test)]
