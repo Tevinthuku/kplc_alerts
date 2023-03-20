@@ -415,3 +415,140 @@ fn include_area_name_to_searcheable_candidates<'a>(
         searcheable_candidates,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use entities::{
+        locations::{ExternalLocationId, LocationInput},
+        power_interruptions::location::{Area, County, NairobiTZDateTime, Region, TimeFrame},
+        subscriptions::{
+            details::{SubscriberDetails, SubscriberExternalId},
+            AffectedSubscriber, SubscriberId,
+        },
+    };
+    use serde_json::Value;
+    use use_cases::{
+        authentication::SubscriberAuthenticationRepo,
+        notifications::notify_subscribers::SubscriberRepo,
+    };
+
+    use crate::repository::Repository;
+
+    fn generate_region() -> Region {
+        Region {
+            region: "Nairobi".to_string(),
+            counties: vec![County {
+                name: "Nairobi".to_string(),
+                areas: vec![
+                    Area {
+                        name: "Garden City".to_string(),
+                        time_frame: TimeFrame {
+                            from: NairobiTZDateTime::today().try_into().unwrap(),
+                            to: NairobiTZDateTime::today().try_into().unwrap(),
+                        },
+                        locations: vec![
+                            "Will Mary Estate".to_string(),
+                            "Garden City Mall".to_string(),
+                        ],
+                    },
+                    Area {
+                        name: "Lumumba".to_string(),
+                        time_frame: TimeFrame {
+                            from: NairobiTZDateTime::today().try_into().unwrap(),
+                            to: NairobiTZDateTime::today().try_into().unwrap(),
+                        },
+                        locations: vec![
+                            "Lumumba dr".to_string(),
+                            "Pan Africa Christian University".to_string(),
+                        ],
+                    },
+                ],
+            }],
+        }
+    }
+
+    async fn authenticate(repo: &Repository) -> SubscriberId {
+        let external_id: SubscriberExternalId =
+            "ChIJGdueTt0VLxgRk19ir6oE8I0".to_owned().try_into().unwrap();
+        repo.create_or_update_subscriber(SubscriberDetails {
+            name: "Tev".to_owned().try_into().unwrap(),
+            email: "tevinthuku@gmail.com".to_owned().try_into().unwrap(),
+            external_id: external_id.clone(),
+        })
+        .await
+        .unwrap();
+
+        repo.find_by_external_id(external_id).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_searching_directly_affected_subscriber_works() {
+        let repository = Repository::new_test_repo().await;
+        let subscriber_id = authenticate(&repository).await;
+        let contents = include_str!("mock_data/garden_city_details_response.json");
+        let api_response: Value = serde_json::from_str(contents).unwrap();
+        let location_id = repository
+            .insert_location(LocationInput {
+                name: "Garden City Mall".to_string(),
+                external_id: ExternalLocationId::from("ChIJGdueTt0VLxgRk19ir6oE8I0".to_string()),
+                address: "Thika Rd, Nairobi, Kenya".to_string(),
+                api_response,
+            })
+            .await
+            .unwrap();
+
+        repository
+            .subscribe_to_location(subscriber_id, location_id)
+            .await
+            .unwrap();
+
+        let results = repository
+            .get_affected_subscribers(&[generate_region()])
+            .await
+            .unwrap();
+        println!("{results:?}");
+        assert!(!results.is_empty());
+        let key = AffectedSubscriber::DirectlyAffected(subscriber_id);
+        assert!(results.contains_key(&key));
+        let value = results.get(&key).unwrap().first().unwrap();
+        assert_eq!(&value.line, "Garden City Mall")
+    }
+
+    #[tokio::test]
+    async fn test_searching_api_response_results_in_potentially_affected_subscriber() {
+        let repository = Repository::new_test_repo().await;
+        let subscriber_id = authenticate(&repository).await;
+        let contents = include_str!("mock_data/mi_vida_homes.json");
+        let api_response: Value = serde_json::from_str(contents).unwrap();
+
+        let location_id = repository
+            .insert_location(LocationInput {
+                name: "Mi Vida Homes".to_string(),
+                external_id: ExternalLocationId::from("ChIJhVbiHlwVLxgRUzt5QN81vPA".to_string()),
+                address: "Off exit, 7 Thika Rd, Nairobi, Kenya".to_string(),
+                api_response,
+            })
+            .await
+            .unwrap();
+
+        repository
+            .subscribe_to_location(subscriber_id, location_id)
+            .await
+            .unwrap();
+
+        let results = repository
+            .get_affected_subscribers(&[generate_region()])
+            .await
+            .unwrap();
+
+        println!("{results:?}");
+
+        assert!(!results.is_empty());
+        let key = AffectedSubscriber::PotentiallyAffected(subscriber_id);
+        assert!(results.contains_key(&key));
+        let value = results.get(&key).unwrap().first().unwrap();
+        assert_eq!(&value.line, "Garden City") // The area name
+    }
+}
