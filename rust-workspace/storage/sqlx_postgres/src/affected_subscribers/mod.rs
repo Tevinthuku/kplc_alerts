@@ -1,3 +1,5 @@
+mod check_if_subscriber_will_be_affected;
+
 use crate::repository::Repository;
 use anyhow::Context;
 use async_trait::async_trait;
