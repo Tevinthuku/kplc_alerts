@@ -82,7 +82,7 @@ impl From<&str> for SearcheableCandidate {
 }
 
 #[derive(sqlx::FromRow, Debug)]
-struct DbLocationSearchResults {
+pub struct DbLocationSearchResults {
     search_query: String,
     location: String,
     id: uuid::Uuid,
@@ -206,7 +206,7 @@ impl Repository {
             .iter()
             .map(|(subscriber, location_ids)| {
                 let locations = location_ids
-                    .into_iter()
+                    .iter()
                     .filter_map(|location| {
                         location_ids_to_search_query
                             .get(location)
@@ -448,7 +448,6 @@ fn filter_out_directly_affected_subscriber_locations_from_potentially_affected(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use entities::{
         locations::{ExternalLocationId, LocationInput},
@@ -499,7 +498,7 @@ mod tests {
         }
     }
 
-    async fn authenticate(repo: &Repository) -> SubscriberId {
+    pub async fn authenticate(repo: &Repository) -> SubscriberId {
         let external_id: SubscriberExternalId =
             "ChIJGdueTt0VLxgRk19ir6oE8I0".to_owned().try_into().unwrap();
         repo.create_or_update_subscriber(SubscriberDetails {
