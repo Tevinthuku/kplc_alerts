@@ -13,18 +13,77 @@ use entities::{locations::LocationId, power_interruptions::location::AreaName};
 use itertools::Itertools;
 use sqlx::types::chrono::DateTime;
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BareAffectedLine {
+    pub line: String,
+    pub time_frame: TimeFrame<NairobiTZDateTime>,
+}
+
+impl BareAffectedLine {
+    async fn lines_affected_in_the_future(
+        repo: &Repository,
+    ) -> anyhow::Result<HashMap<AreaName, Vec<Self>>> {
+        let pool = repo.pool();
+        #[derive(sqlx::FromRow, Debug)]
+        struct DbAreaLine {
+            line_name: String,
+            area_name: String,
+            start_time: DateTime<Utc>,
+            end_time: DateTime<Utc>,
+        }
+        let results = sqlx::query_as::<_, DbAreaLine>(
+            "
+                WITH upcoming_scheduled_blackouts AS (
+                    SELECT id, start_time, end_time FROM location.blackout_schedule WHERE start_time > now() 
+                    ), line_names_and_ids AS (
+                    SELECT line_id, start_time, end_time, name, area_id FROM location.line_schedule INNER JOIN 
+                    location.line ON line_schedule.line_id = location.line.id INNER JOIN 
+                    upcoming_scheduled_blackouts ON line_schedule.schedule_id = upcoming_scheduled_blackouts.id
+                    ), line_names_and_area AS (
+                    SELECT line_names_and_ids.name as line_name, location.area.name as area_name, start_time, end_time FROM line_names_and_ids INNER JOIN 
+                    location.area ON line_names_and_ids.area_id = location.area.id
+                    )
+                SELECT * FROM line_names_and_area;
+                "
+        )
+        .fetch_all(pool)
+        .await
+        .context("Failed to get lines that will be affected")?;
+
+        let results = results
+            .into_iter()
+            .map(|data| {
+                (
+                    data.area_name.into(),
+                    BareAffectedLine {
+                        line: data.line_name,
+                        time_frame: TimeFrame {
+                            from: NairobiTZDateTime::from(data.start_time),
+                            to: NairobiTZDateTime::from(data.end_time),
+                        },
+                    },
+                )
+            })
+            .into_group_map();
+
+        Ok(results)
+    }
+}
+
 impl Repository {
+    pub async fn is_subscriber_directly_affected(
+        &self,
+        subscriber_id: SubscriberId,
+        location_id: LocationId,
+    ) -> anyhow::Result<()> {
+        todo!()
+    }
     pub async fn will_subscriber_be_affected(
         &self,
         subscriber_id: SubscriberId,
         location_id: LocationId,
     ) -> anyhow::Result<Option<(AffectedSubscriber, AffectedLine<NairobiTZDateTime>)>> {
-        // check blackout schedule
-
-        // select all lines in the affected blackout schedules
-        // grab area_names from lines and use both to form searcheable_candidates
-        // check if any candidate matches location provided via both primary or secondary search
-        let results = self.get_areas_with_lines_that_will_be_affected().await?;
+        let results = BareAffectedLine::lines_affected_in_the_future(self).await?;
 
         let affected_lines = results.values().flatten().collect_vec();
         let directly_affected = self
@@ -49,7 +108,7 @@ impl Repository {
 
     async fn get_areas_with_lines_that_will_be_affected(
         &self,
-    ) -> anyhow::Result<HashMap<AreaName, Vec<AffectedLine<NairobiTZDateTime>>>> {
+    ) -> anyhow::Result<HashMap<AreaName, Vec<BareAffectedLine>>> {
         let pool = self.pool();
         #[derive(sqlx::FromRow, Debug)]
         struct DbAreaLine {
@@ -63,10 +122,12 @@ impl Repository {
                 WITH upcoming_scheduled_blackouts AS (
                     SELECT id, start_time, end_time FROM location.blackout_schedule WHERE start_time > now() 
                     ), line_names_and_ids AS (
-                    SELECT line_id, start_time, end_time, name, area_id FROM location.line_schedule INNER JOIN location.line ON line_schedule.line_id = location.line.id INNER JOIN upcoming_scheduled_blackouts ON line_schedule.schedule_id = upcoming_scheduled_blackouts.id
-                    
+                    SELECT line_id, start_time, end_time, name, area_id FROM location.line_schedule INNER JOIN 
+                    location.line ON line_schedule.line_id = location.line.id INNER JOIN 
+                    upcoming_scheduled_blackouts ON line_schedule.schedule_id = upcoming_scheduled_blackouts.id
                     ), line_names_and_area AS (
-                    SELECT line_names_and_ids.name as line_name, location.area.name as area_name, start_time, end_time FROM line_names_and_ids INNER JOIN location.area ON line_names_and_ids.area_id = location.area.id
+                    SELECT line_names_and_ids.name as line_name, location.area.name as area_name, start_time, end_time FROM line_names_and_ids INNER JOIN 
+                    location.area ON line_names_and_ids.area_id = location.area.id
                     )
                 SELECT * FROM line_names_and_area;
                 "
@@ -80,7 +141,7 @@ impl Repository {
             .map(|data| {
                 (
                     data.area_name.into(),
-                    AffectedLine {
+                    BareAffectedLine {
                         line: data.line_name,
                         time_frame: TimeFrame {
                             from: NairobiTZDateTime::from(data.start_time),
@@ -97,7 +158,7 @@ impl Repository {
     async fn directly_affected_subscriber(
         &self,
         location_id: LocationId,
-        affected_lines: &[&AffectedLine<NairobiTZDateTime>],
+        affected_lines: &[&BareAffectedLine],
     ) -> anyhow::Result<Option<AffectedLine<NairobiTZDateTime>>> {
         let pool = self.pool();
 
@@ -129,7 +190,8 @@ impl Repository {
             let time_frame = *mapping_of_line_to_time_frame.get(original_line_candidate).ok_or(anyhow!("Failed to get time_frame when we should have for candidate {original_line_candidate}"))?;
 
             Ok(Some(AffectedLine {
-                line: location.location,
+                location_matched: location_id,
+                line: original_line_candidate.to_string(),
                 time_frame: time_frame.clone(),
             }))
         } else {
@@ -140,10 +202,7 @@ impl Repository {
     async fn potentially_affected_subscriber(
         &self,
         location_id: LocationId,
-        mapping_of_areas_with_affected_lines: HashMap<
-            AreaName,
-            Vec<AffectedLine<NairobiTZDateTime>>,
-        >,
+        mapping_of_areas_with_affected_lines: HashMap<AreaName, Vec<BareAffectedLine>>,
     ) -> anyhow::Result<Option<AffectedLine<NairobiTZDateTime>>> {
         let map_areas_as_locations = mapping_of_areas_with_affected_lines
             .into_iter()
@@ -152,7 +211,7 @@ impl Repository {
                 time_frame.map(|time_frame| {
                     affected_lines
                         .into_iter()
-                        .chain(once_with(|| AffectedLine {
+                        .chain(once_with(|| BareAffectedLine {
                             line: area.inner(),
                             time_frame,
                         }))
@@ -170,7 +229,7 @@ impl Repository {
             searcheable_candidates,
         } = Mapping::generate(&affected_lines);
 
-        let primary_location = sqlx::query_as::<_, DbLocationSearchResults>(
+        let nearby_location = sqlx::query_as::<_, DbLocationSearchResults>(
             "
             SELECT * FROM location.search_specific_location_secondary_text($1::text[], $2::uuid)
             ",
@@ -181,7 +240,7 @@ impl Repository {
         .await
         .context("Failed to fetch results from search_specific_location_secondary_text")?;
 
-        if let Some(location) = primary_location {
+        if let Some(location) = nearby_location {
             let original_line_candidate =
                 mapping_of_searcheble_candidate_to_original_line_candidate
                     .get(&location.search_query)
@@ -193,7 +252,8 @@ impl Repository {
             let time_frame = *mapping_of_line_to_time_frame.get(original_line_candidate).ok_or(anyhow!("Failed to get time_frame when we should have for candidate {original_line_candidate}"))?;
 
             Ok(Some(AffectedLine {
-                line: location.location,
+                location_matched: location_id,
+                line: original_line_candidate.to_string(),
                 time_frame: time_frame.clone(),
             }))
         } else {
@@ -209,7 +269,7 @@ struct Mapping<'a> {
 }
 
 impl<'a> Mapping<'a> {
-    fn generate(affected_lines: &'a [&AffectedLine<NairobiTZDateTime>]) -> Self {
+    fn generate(affected_lines: &'a [&BareAffectedLine]) -> Self {
         let mapping_of_line_to_time_frame = affected_lines
             .iter()
             .map(|line| (&line.line, &line.time_frame))
@@ -351,6 +411,6 @@ mod tests {
             affected_subscriber,
             AffectedSubscriber::PotentiallyAffected(subscriber_id)
         );
-        assert_eq!(&affected_line.line, "Mi Vida Homes");
+        assert_eq!(&affected_line.line, "Garden City");
     }
 }

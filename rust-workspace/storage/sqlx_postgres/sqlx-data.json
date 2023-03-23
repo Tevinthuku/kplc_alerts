@@ -390,6 +390,39 @@
     },
     "query": "\n            INSERT INTO location.locations (name, external_id, address, sanitized_address, external_api_response) \n            VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING\n            "
   },
+  "f2cd3f3e096e64e5c5c3a8b4ae56ef4542fdf6e8400423a74a687e17aea0ad0c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "subscriber_id",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "location_id",
+          "ordinal": 2,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM location.subscriber_locations WHERE subscriber_id = $1 AND location_id = $2\n            "
+  },
   "f3ac55e2b438d6ca309cb1fe35a2ebc56ecd131c6985e2090391c4e9285519f3": {
     "describe": {
       "columns": [],

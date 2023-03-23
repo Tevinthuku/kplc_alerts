@@ -3,6 +3,7 @@ mod check_if_subscriber_will_be_affected;
 use crate::repository::Repository;
 use anyhow::Context;
 use async_trait::async_trait;
+use entities::locations::LocationId;
 use entities::power_interruptions::location::{Area, TimeFrame};
 use entities::subscriptions::AffectedSubscriber;
 use entities::{
@@ -85,7 +86,7 @@ impl From<&str> for SearcheableCandidate {
 pub struct DbLocationSearchResults {
     search_query: String,
     location: String,
-    id: uuid::Uuid,
+    id: Uuid,
 }
 
 struct SubscriberWithLocation {
@@ -214,10 +215,12 @@ impl Repository {
                                 mapping_of_searcheable_candidate_to_candidate
                                     .get(candidate)
                                     .cloned()
+                                    .map(|line| (line, location))
                             })
                     })
-                    .map(|location| AffectedLine {
-                        line: location,
+                    .map(|(line, location)| AffectedLine {
+                        line,
+                        location_matched: LocationId::from(*location),
                         time_frame: TimeFrame {
                             from: time_frame.from,
                             to: time_frame.to,
@@ -302,15 +305,17 @@ impl Repository {
                     .iter()
                     .filter_map(|location| {
                         location_ids_to_search_query
-                            .get(&location)
+                            .get(location)
                             .and_then(|candidate| {
                                 mapping_of_searcheable_candidate_to_candidate
                                     .get(candidate)
                                     .cloned()
+                                    .map(|line| (line, location))
                             })
                     })
-                    .map(|location| AffectedLine {
-                        line: location,
+                    .map(|(line, location)| AffectedLine {
+                        line,
+                        location_matched: LocationId::from(*location),
                         time_frame: TimeFrame {
                             from: time_frame.from,
                             to: time_frame.to,
@@ -342,10 +347,10 @@ impl Repository {
                 &location_ids[..]
             ).fetch_all(pool).await.context("Failed to get subscribers subscribed to nearby locations")?;
 
-        /// We are still getting direct subscriber locations
-        /// because some subscribers might be directly subscribed to the location
-        /// however, we are still marking them as PottentiallyAffected because
-        /// we scanned the text in the API-Response via `search_locations_secondary_text()`
+        // We are still getting direct subscriber locations
+        // because some subscribers might be directly subscribed to the location
+        // however, we are still marking them as PottentiallyAffected because
+        // we scanned the text in the API-Response via `search_locations_secondary_text()`
         let directly_affected_subscribers = self
             .get_direct_subscribers_with_locations(&location_ids)
             .await?;
