@@ -4,7 +4,7 @@ use crate::repository::Repository;
 use anyhow::Context;
 use async_trait::async_trait;
 use entities::locations::LocationId;
-use entities::power_interruptions::location::{Area, TimeFrame};
+use entities::power_interruptions::location::{Area, NairobiTZDateTime, TimeFrame};
 use entities::subscriptions::AffectedSubscriber;
 use entities::{
     power_interruptions::location::{AffectedLine, FutureOrCurrentNairobiTZDateTime, Region},
@@ -22,7 +22,7 @@ impl SubscriberRepo for Repository {
     async fn get_affected_subscribers(
         &self,
         regions: &[Region],
-    ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<AffectedLine>>> {
+    ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<AffectedLine<NairobiTZDateTime>>>> {
         let areas = regions
             .iter()
             .flat_map(|region| {
@@ -98,7 +98,7 @@ impl Repository {
     async fn get_location_subscribers(
         &self,
         area: &Area<FutureOrCurrentNairobiTZDateTime>,
-    ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<AffectedLine>>> {
+    ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<AffectedLine<NairobiTZDateTime>>>> {
         let time_frame = area.time_frame.clone();
         let candidates = &area.locations;
 
@@ -155,13 +155,13 @@ impl Repository {
             &str,
         >,
     ) -> anyhow::Result<(
-        HashMap<AffectedSubscriber, Vec<AffectedLine>>,
+        HashMap<AffectedSubscriber, Vec<AffectedLine<NairobiTZDateTime>>>,
         HashMap<Uuid, Vec<Uuid>>,
     )> {
         let pool = self.pool();
         let time_frame = TimeFrame {
-            from: time_frame.from.to_date_time(),
-            to: time_frame.to.to_date_time(),
+            from: NairobiTZDateTime::from(&time_frame.from),
+            to: NairobiTZDateTime::from(&time_frame.to),
         };
         let primary_locations = sqlx::query_as::<_, DbLocationSearchResults>(
             "
@@ -221,10 +221,7 @@ impl Repository {
                     .map(|(line, location)| AffectedLine {
                         line,
                         location_matched: LocationId::from(*location),
-                        time_frame: TimeFrame {
-                            from: time_frame.from,
-                            to: time_frame.to,
-                        },
+                        time_frame: time_frame.clone(),
                     })
                     .collect_vec();
                 (
@@ -244,7 +241,7 @@ impl Repository {
         mapping_of_searcheable_candidate_to_original_candidate: HashMap<SearcheableCandidate, &str>,
         mapping_of_subscriber_to_directly_affected_locations: HashMap<Uuid, Vec<Uuid>>,
         area_name: String,
-    ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<AffectedLine>>> {
+    ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<AffectedLine<NairobiTZDateTime>>>> {
         let (mapping_of_searcheable_candidate_to_original_candidate, searcheable_candidates) =
             include_area_name_to_searcheable_candidates(
                 searcheable_candidates,
@@ -254,8 +251,8 @@ impl Repository {
 
         let pool = self.pool();
         let time_frame = TimeFrame {
-            from: time_frame.from.to_date_time(),
-            to: time_frame.to.to_date_time(),
+            from: NairobiTZDateTime::from(&time_frame.from),
+            to: NairobiTZDateTime::from(&time_frame.to),
         };
 
         let nearby_locations = sqlx::query_as::<_, DbLocationSearchResults>(
@@ -316,10 +313,7 @@ impl Repository {
                     .map(|(line, location)| AffectedLine {
                         line,
                         location_matched: LocationId::from(*location),
-                        time_frame: TimeFrame {
-                            from: time_frame.from,
-                            to: time_frame.to,
-                        },
+                        time_frame: time_frame.clone(),
                     })
                     .collect_vec();
                 (

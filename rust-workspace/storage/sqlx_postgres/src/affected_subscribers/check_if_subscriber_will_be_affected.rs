@@ -7,15 +7,19 @@ use crate::{
 use anyhow::anyhow;
 use anyhow::Context;
 use chrono::Utc;
+use chrono_tz::Tz;
+use entities::notifications::Notification;
 use entities::power_interruptions::location::{AffectedLine, NairobiTZDateTime, TimeFrame};
 use entities::subscriptions::{AffectedSubscriber, SubscriberId};
 use entities::{locations::LocationId, power_interruptions::location::AreaName};
 use itertools::Itertools;
 use sqlx::types::chrono::DateTime;
+use url::Url;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BareAffectedLine {
     pub line: String,
+    pub url: Url,
     pub time_frame: TimeFrame<NairobiTZDateTime>,
 }
 
@@ -23,149 +27,81 @@ impl BareAffectedLine {
     async fn lines_affected_in_the_future(
         repo: &Repository,
     ) -> anyhow::Result<HashMap<AreaName, Vec<Self>>> {
-        let pool = repo.pool();
         #[derive(sqlx::FromRow, Debug)]
         struct DbAreaLine {
             line_name: String,
             area_name: String,
             start_time: DateTime<Utc>,
             end_time: DateTime<Utc>,
+            url: String,
         }
         let results = sqlx::query_as::<_, DbAreaLine>(
             "
                 WITH upcoming_scheduled_blackouts AS (
-                    SELECT id, start_time, end_time FROM location.blackout_schedule WHERE start_time > now() 
-                    ), line_names_and_ids AS (
-                    SELECT line_id, start_time, end_time, name, area_id FROM location.line_schedule INNER JOIN 
-                    location.line ON line_schedule.line_id = location.line.id INNER JOIN 
-                    upcoming_scheduled_blackouts ON line_schedule.schedule_id = upcoming_scheduled_blackouts.id
-                    ), line_names_and_area AS (
-                    SELECT line_names_and_ids.name as line_name, location.area.name as area_name, start_time, end_time FROM line_names_and_ids INNER JOIN 
-                    location.area ON line_names_and_ids.area_id = location.area.id
-                    )
-                SELECT * FROM line_names_and_area;
+                  SELECT schedule.id, url, start_time, end_time FROM location.blackout_schedule schedule INNER JOIN  source ON  schedule.source_id = source.id WHERE start_time > now()
+                ), blackout_schedule_with_lines_and_areas AS (
+                  SELECT line_id, url, start_time, end_time, name, area_id FROM location.line_schedule INNER JOIN location.line ON line_schedule.line_id = location.line.id INNER JOIN upcoming_scheduled_blackouts ON line_schedule.schedule_id = upcoming_scheduled_blackouts.id
+                ),line_area_source_url AS (
+                  SELECT blackout_schedule_with_lines_and_areas.name as line_name, location.area.name as area_name, start_time, end_time , url FROM blackout_schedule_with_lines_and_areas INNER JOIN location.area ON blackout_schedule_with_lines_and_areas.area_id = location.area.id
+                )
+                SELECT * FROM line_area_source_url
                 "
         )
-        .fetch_all(pool)
+        .fetch_all(repo.pool())
         .await
         .context("Failed to get lines that will be affected")?;
 
         let results = results
             .into_iter()
             .map(|data| {
-                (
-                    data.area_name.into(),
-                    BareAffectedLine {
-                        line: data.line_name,
-                        time_frame: TimeFrame {
-                            from: NairobiTZDateTime::from(data.start_time),
-                            to: NairobiTZDateTime::from(data.end_time),
+                let url_result = Url::parse(&data.url);
+                url_result.map(|url| {
+                    (
+                        data.area_name.into(),
+                        BareAffectedLine {
+                            line: data.line_name,
+                            url,
+                            time_frame: TimeFrame {
+                                from: NairobiTZDateTime::from(data.start_time),
+                                to: NairobiTZDateTime::from(data.end_time),
+                            },
                         },
-                    },
-                )
+                    )
+                })
             })
-            .into_group_map();
+            .collect::<Result<Vec<_>, _>>()
+            .context("Failed to map urls")?;
 
-        Ok(results)
+        Ok(results.into_iter().into_group_map())
     }
 }
 
 impl Repository {
-    pub async fn is_subscriber_directly_affected(
+    pub async fn subscriber_directly_affected(
         &self,
         subscriber_id: SubscriberId,
         location_id: LocationId,
-    ) -> anyhow::Result<()> {
-        todo!()
-    }
-    pub async fn will_subscriber_be_affected(
-        &self,
-        subscriber_id: SubscriberId,
-        location_id: LocationId,
-    ) -> anyhow::Result<Option<(AffectedSubscriber, AffectedLine<NairobiTZDateTime>)>> {
+    ) -> anyhow::Result<Option<Notification>> {
         let results = BareAffectedLine::lines_affected_in_the_future(self).await?;
-
         let affected_lines = results.values().flatten().collect_vec();
-        let directly_affected = self
-            .directly_affected_subscriber(location_id, &affected_lines)
-            .await?;
 
-        let potentially_affected = self
-            .potentially_affected_subscriber(location_id, results)
-            .await?;
-
-        let result = match (directly_affected, potentially_affected) {
-            (Some(affected_line), _) => Some((
-                AffectedSubscriber::DirectlyAffected(subscriber_id),
-                affected_line,
-            )),
-            (_, Some(line)) => Some((AffectedSubscriber::PotentiallyAffected(subscriber_id), line)),
-            _ => None,
-        };
-
-        Ok(result)
+        self.directly_affected_subscriber_notification(subscriber_id, location_id, &affected_lines)
+            .await
     }
 
-    async fn get_areas_with_lines_that_will_be_affected(
+    async fn directly_affected_subscriber_notification(
         &self,
-    ) -> anyhow::Result<HashMap<AreaName, Vec<BareAffectedLine>>> {
-        let pool = self.pool();
-        #[derive(sqlx::FromRow, Debug)]
-        struct DbAreaLine {
-            line_name: String,
-            area_name: String,
-            start_time: DateTime<Utc>,
-            end_time: DateTime<Utc>,
-        }
-        let results = sqlx::query_as::<_, DbAreaLine>(
-            "
-                WITH upcoming_scheduled_blackouts AS (
-                    SELECT id, start_time, end_time FROM location.blackout_schedule WHERE start_time > now() 
-                    ), line_names_and_ids AS (
-                    SELECT line_id, start_time, end_time, name, area_id FROM location.line_schedule INNER JOIN 
-                    location.line ON line_schedule.line_id = location.line.id INNER JOIN 
-                    upcoming_scheduled_blackouts ON line_schedule.schedule_id = upcoming_scheduled_blackouts.id
-                    ), line_names_and_area AS (
-                    SELECT line_names_and_ids.name as line_name, location.area.name as area_name, start_time, end_time FROM line_names_and_ids INNER JOIN 
-                    location.area ON line_names_and_ids.area_id = location.area.id
-                    )
-                SELECT * FROM line_names_and_area;
-                "
-        )
-        .fetch_all(pool)
-        .await
-        .context("Failed to get lines that will be affected")?;
-
-        let results = results
-            .into_iter()
-            .map(|data| {
-                (
-                    data.area_name.into(),
-                    BareAffectedLine {
-                        line: data.line_name,
-                        time_frame: TimeFrame {
-                            from: NairobiTZDateTime::from(data.start_time),
-                            to: NairobiTZDateTime::from(data.end_time),
-                        },
-                    },
-                )
-            })
-            .into_group_map();
-
-        Ok(results)
-    }
-
-    async fn directly_affected_subscriber(
-        &self,
+        subscriber_id: SubscriberId,
         location_id: LocationId,
         affected_lines: &[&BareAffectedLine],
-    ) -> anyhow::Result<Option<AffectedLine<NairobiTZDateTime>>> {
+    ) -> anyhow::Result<Option<Notification>> {
         let pool = self.pool();
 
         let Mapping {
             mapping_of_line_to_time_frame,
             mapping_of_searcheble_candidate_to_original_line_candidate,
             searcheable_candidates,
+            mapping_of_line_to_url,
         } = Mapping::generate(affected_lines);
         let primary_location = sqlx::query_as::<_, DbLocationSearchResults>(
             "
@@ -189,31 +125,50 @@ impl Repository {
 
             let time_frame = *mapping_of_line_to_time_frame.get(original_line_candidate).ok_or(anyhow!("Failed to get time_frame when we should have for candidate {original_line_candidate}"))?;
 
-            Ok(Some(AffectedLine {
+            let url = *mapping_of_line_to_url
+                .get(original_line_candidate)
+                .ok_or(anyhow!(
+                "Failed to get url from mapping_of_line_to_url for line {original_line_candidate}"
+            ))?;
+            let affected_line = AffectedLine {
                 location_matched: location_id,
                 line: original_line_candidate.to_string(),
                 time_frame: time_frame.clone(),
-            }))
+            };
+
+            let notification = Notification {
+                url: url.to_owned(),
+                subscriber: AffectedSubscriber::DirectlyAffected(subscriber_id),
+                lines: vec![affected_line],
+            };
+
+            Ok(Some(notification))
         } else {
             Ok(None)
         }
     }
 
-    async fn potentially_affected_subscriber(
+    pub async fn subscriber_potentially_affected(
         &self,
+        subscriber_id: SubscriberId,
         location_id: LocationId,
-        mapping_of_areas_with_affected_lines: HashMap<AreaName, Vec<BareAffectedLine>>,
-    ) -> anyhow::Result<Option<AffectedLine<NairobiTZDateTime>>> {
+    ) -> anyhow::Result<Option<Notification>> {
+        let mapping_of_areas_with_affected_lines =
+            BareAffectedLine::lines_affected_in_the_future(self).await?;
+
         let map_areas_as_locations = mapping_of_areas_with_affected_lines
             .into_iter()
             .filter_map(|(area, affected_lines)| {
-                let time_frame = affected_lines.first().map(|line| line.time_frame.clone());
-                time_frame.map(|time_frame| {
+                let time_frame_and_url = affected_lines
+                    .first()
+                    .map(|line| (line.time_frame.clone(), line.url.clone()));
+                time_frame_and_url.map(|(time_frame, url)| {
                     affected_lines
                         .into_iter()
                         .chain(once_with(|| BareAffectedLine {
                             line: area.inner(),
                             time_frame,
+                            url,
                         }))
                         .collect_vec()
                 })
@@ -227,6 +182,7 @@ impl Repository {
             mapping_of_line_to_time_frame,
             mapping_of_searcheble_candidate_to_original_line_candidate,
             searcheable_candidates,
+            mapping_of_line_to_url,
         } = Mapping::generate(&affected_lines);
 
         let nearby_location = sqlx::query_as::<_, DbLocationSearchResults>(
@@ -251,11 +207,22 @@ impl Repository {
 
             let time_frame = *mapping_of_line_to_time_frame.get(original_line_candidate).ok_or(anyhow!("Failed to get time_frame when we should have for candidate {original_line_candidate}"))?;
 
-            Ok(Some(AffectedLine {
+            let url = *mapping_of_line_to_url
+                .get(original_line_candidate)
+                .ok_or(anyhow!(
+                "Failed to get url from mapping_of_line_to_url for line {original_line_candidate}"
+            ))?;
+            let affected_line = AffectedLine {
                 location_matched: location_id,
                 line: original_line_candidate.to_string(),
                 time_frame: time_frame.clone(),
-            }))
+            };
+            let notification = Notification {
+                url: url.to_owned(),
+                subscriber: AffectedSubscriber::PotentiallyAffected(subscriber_id),
+                lines: vec![affected_line],
+            };
+            Ok(Some(notification))
         } else {
             Ok(None)
         }
@@ -266,6 +233,7 @@ struct Mapping<'a> {
     mapping_of_line_to_time_frame: HashMap<&'a String, &'a TimeFrame<NairobiTZDateTime>>,
     mapping_of_searcheble_candidate_to_original_line_candidate: HashMap<String, &'a String>,
     searcheable_candidates: Vec<String>,
+    mapping_of_line_to_url: HashMap<&'a String, &'a Url>,
 }
 
 impl<'a> Mapping<'a> {
@@ -274,6 +242,11 @@ impl<'a> Mapping<'a> {
             .iter()
             .map(|line| (&line.line, &line.time_frame))
             .collect::<HashMap<_, _>>();
+
+        let mapping_of_line_to_url = affected_lines
+            .iter()
+            .map(|line| (&line.line, &line.url))
+            .collect();
 
         let mapping_of_searcheble_candidate_to_original_line_candidate = affected_lines
             .iter()
@@ -292,6 +265,7 @@ impl<'a> Mapping<'a> {
             mapping_of_line_to_time_frame,
             mapping_of_searcheble_candidate_to_original_line_candidate,
             searcheable_candidates,
+            mapping_of_line_to_url,
         }
     }
 }
@@ -367,17 +341,18 @@ mod tests {
         // TODO: Fix this type
         let location_id = LocationId::from(location_id.into_inner());
 
-        let (affected_subscriber, affected_line) = repository
-            .will_subscriber_be_affected(subscriber_id, location_id)
+        let notification = repository
+            .subscriber_directly_affected(subscriber_id, location_id)
             .await
             .unwrap()
             .unwrap();
 
         assert_eq!(
-            affected_subscriber,
+            notification.subscriber,
             AffectedSubscriber::DirectlyAffected(subscriber_id)
         );
-        assert_eq!(&affected_line.line, "Garden City Mall");
+        let line = &notification.lines.first().unwrap().line;
+        assert_eq!(line, "Garden City Mall");
     }
 
     #[tokio::test]
@@ -401,16 +376,17 @@ mod tests {
 
         let location_id = LocationId::from(location_id.into_inner());
 
-        let (affected_subscriber, affected_line) = repository
-            .will_subscriber_be_affected(subscriber_id, location_id)
+        let notification = repository
+            .subscriber_potentially_affected(subscriber_id, location_id)
             .await
             .unwrap()
             .unwrap();
 
         assert_eq!(
-            affected_subscriber,
+            notification.subscriber,
             AffectedSubscriber::PotentiallyAffected(subscriber_id)
         );
-        assert_eq!(&affected_line.line, "Garden City");
+        let line = &notification.lines.first().unwrap().line;
+        assert_eq!(line, "Garden City");
     }
 }
