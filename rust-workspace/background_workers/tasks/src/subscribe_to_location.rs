@@ -59,13 +59,18 @@ pub async fn get_and_subscribe_to_nearby_location(
     };
     repo.subscribe_to_adjuscent_location(subscriber_primary_location_id, id)
         .await
-        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))
+        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))?;
 
     if subscriber_directly_affected {
-        return Ok(())
+        return Ok(());
     }
     let location_id = id.into_inner().into();
-    let notification = repo.subscriber_potentially_affected(subscriber_id, location_id).await?;
+    let notification = repo
+        .subscriber_potentially_affected(subscriber_id, location_id)
+        .await
+        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))?;
+
+    Ok(())
 }
 
 #[celery::task(max_retries = 200, bind = true, retry_for_unexpected = false, on_failure = failure_callback)]
@@ -95,7 +100,8 @@ pub async fn fetch_and_subscribe_to_locations(
         .get()
         .await
         .subscriber_directly_affected(subscriber, EntityLocationId::from(id))
-        .await?;
+        .await
+        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))?;
 
     // TODO: Send notification
 
@@ -107,6 +113,7 @@ pub async fn fetch_and_subscribe_to_locations(
                 .send_task(get_and_subscribe_to_nearby_location::new(
                     nearby_location,
                     id,
+                    subscriber,
                     direct_notification.is_some(),
                 ))
         })
