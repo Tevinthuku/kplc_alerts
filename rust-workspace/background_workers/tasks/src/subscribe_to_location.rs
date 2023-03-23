@@ -2,6 +2,7 @@ use anyhow::Context;
 use celery::export::async_trait;
 use celery::prelude::*;
 use entities::locations::ExternalLocationId;
+use entities::locations::LocationId as EntityLocationId;
 use entities::locations::LocationInput;
 use entities::subscriptions::SubscriberId;
 use futures::stream::FuturesUnordered;
@@ -39,6 +40,8 @@ pub async fn get_and_subscribe_to_nearby_location(
     task: &Self,
     external_id: ExternalLocationId,
     subscriber_primary_location_id: Uuid,
+    subscriber_id: SubscriberId,
+    subscriber_directly_affected: bool,
 ) -> TaskResult<()> {
     let repo = REPO.get().await;
     let id = try_get_location_from_cache(&external_id).await?;
@@ -58,7 +61,11 @@ pub async fn get_and_subscribe_to_nearby_location(
         .await
         .map_err(|err| TaskError::UnexpectedError(format!("{err}")))
 
-    // REPO.check_if_location_will_be_potentially_affected()?
+    if subscriber_directly_affected {
+        return Ok(())
+    }
+    let location_id = id.into_inner().into();
+    let notification = repo.subscriber_potentially_affected(subscriber_id, location_id).await?;
 }
 
 #[celery::task(max_retries = 200, bind = true, retry_for_unexpected = false, on_failure = failure_callback)]
@@ -84,9 +91,13 @@ pub async fn fetch_and_subscribe_to_locations(
 
     let id = subscribe_to_primary_location(location_id, subscriber).await?;
 
-    // check if location is affected;
-    // if so, send a notification & pass flag to the nearby_locations not to send notifications;
-    
+    let direct_notification = REPO
+        .get()
+        .await
+        .subscriber_directly_affected(subscriber, EntityLocationId::from(id))
+        .await?;
+
+    // TODO: Send notification
 
     let mut futures: FuturesUnordered<_> = nearby_locations
         .into_iter()
@@ -96,6 +107,7 @@ pub async fn fetch_and_subscribe_to_locations(
                 .send_task(get_and_subscribe_to_nearby_location::new(
                     nearby_location,
                     id,
+                    direct_notification.is_some(),
                 ))
         })
         .collect();
