@@ -2,6 +2,7 @@ use crate::locations::LocationId;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Africa::Nairobi;
 use chrono_tz::Tz;
+use serde::{Deserialize, Serialize};
 use shared_kernel::string_key;
 use std::collections::HashMap;
 use url::Url;
@@ -18,7 +19,7 @@ pub struct Region<T = FutureOrCurrentNairobiTZDateTime> {
     pub counties: Vec<County<T>>,
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NairobiTZDateTime(DateTime<Tz>);
 
 impl NairobiTZDateTime {
@@ -94,13 +95,13 @@ pub struct Area<T> {
 
 pub struct ImportInput(pub HashMap<Url, Vec<Region<FutureOrCurrentNairobiTZDateTime>>>);
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TimeFrame<T> {
     pub from: T,
     pub to: T,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AffectedLine<T = DateTime<Tz>> {
     pub line: String,
     pub location_matched: LocationId,
