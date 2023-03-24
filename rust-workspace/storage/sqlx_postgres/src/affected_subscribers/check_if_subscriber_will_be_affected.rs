@@ -276,7 +276,7 @@ mod tests {
 
     use chrono::{Days, Utc};
     use entities::{
-        locations::{ExternalLocationId, LocationId, LocationInput},
+        locations::{ExternalLocationId, LocationId},
         power_interruptions::location::{
             Area, County, ImportInput, NairobiTZDateTime, Region, TimeFrame,
         },
@@ -286,6 +286,7 @@ mod tests {
     use url::Url;
     use use_cases::import_affected_areas::SaveBlackoutAffectedAreasRepo;
 
+    use crate::locations::insert_location::LocationInput;
     use crate::{affected_subscribers::tests::authenticate, repository::Repository};
 
     fn generate_region() -> Region {

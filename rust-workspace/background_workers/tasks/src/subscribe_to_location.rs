@@ -3,12 +3,12 @@ use celery::export::async_trait;
 use celery::prelude::*;
 use entities::locations::ExternalLocationId;
 use entities::locations::LocationId as EntityLocationId;
-use entities::locations::LocationInput;
 use entities::subscriptions::SubscriberId;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use secrecy::ExposeSecret;
 use shared_kernel::http_client::HttpClient;
+use sqlx_postgres::locations::insert_location::LocationInput;
 use url::Url;
 
 use crate::utils::get_token::get_token_count;
