@@ -5,6 +5,7 @@ use entities::notifications::{DeliveryStrategy, Notification};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use std::sync::Arc;
+use tasks::send_notifications::email::send_email_notification;
 pub struct EmailStrategy {
     app: Arc<Celery>,
 }
@@ -23,9 +24,10 @@ impl DeliveryStrategy for EmailStrategy {
         let mut errors = vec![];
         while let Some(result) = futures.next().await {
             if let Err(e) = result {
-                errors.push(e);
                 // TODO: Setup logging
-                println!("Error sending notification: {e:?}")
+                println!("Error sending notification: {e:?}");
+                errors.push(e);
+
             }
         }
 

@@ -20,12 +20,13 @@ pub struct Region<T = FutureOrCurrentNairobiTZDateTime> {
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct NairobiTZDateTime(DateTime<Tz>);
+/// NairobiTZDateTime stores the time as `DateTime<UTC>` for easier serialization
+/// and deserialization
+pub struct NairobiTZDateTime(DateTime<Utc>);
 
 impl NairobiTZDateTime {
     pub fn today() -> Self {
-        let today = Utc::now().naive_utc();
-        NairobiTZDateTime(Nairobi.from_utc_datetime(&today))
+        NairobiTZDateTime(Utc::now())
     }
 
     fn date(&self) -> NaiveDate {
@@ -33,14 +34,13 @@ impl NairobiTZDateTime {
     }
 
     pub fn to_date_time(&self) -> DateTime<Tz> {
-        self.0
+        Nairobi.from_utc_datetime(&self.0.naive_utc())
     }
 }
 
 impl From<DateTime<Utc>> for NairobiTZDateTime {
     fn from(data: DateTime<Utc>) -> NairobiTZDateTime {
-        let data = data.naive_utc();
-        NairobiTZDateTime(Nairobi.from_utc_datetime(&data))
+        NairobiTZDateTime(data)
     }
 }
 
@@ -52,7 +52,11 @@ impl TryFrom<NaiveDateTime> for NairobiTZDateTime {
             .from_local_datetime(&value)
             .single()
             .ok_or_else(|| "Failed to convert {value} to Nairobi timezone".to_string())
-            .map(NairobiTZDateTime)
+            .map(|date_time| {
+                let date_time = date_time.naive_utc();
+                let date_time = Utc.from_utc_datetime(&date_time);
+                Self(date_time)
+            })
     }
 }
 
