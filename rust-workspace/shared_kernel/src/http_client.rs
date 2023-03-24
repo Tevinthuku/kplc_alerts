@@ -6,6 +6,7 @@ use reqwest::Response;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use serde::de::DeserializeOwned;
+use serde_json::Value;
 use url::Url;
 
 lazy_static! {
@@ -48,6 +49,18 @@ impl HttpClient {
             .await?
             .json::<DTO>()
             .await
-            .context("Failed to get json response")
+            .context("Failed to deserialize response")
+    }
+
+    pub async fn post_json<DTO: DeserializeOwned>(url: Url, body: Value) -> anyhow::Result<DTO> {
+        CLIENT
+            .post(url)
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to get json response")?
+            .json::<DTO>()
+            .await
+            .context("Failed to deserialize response")
     }
 }
