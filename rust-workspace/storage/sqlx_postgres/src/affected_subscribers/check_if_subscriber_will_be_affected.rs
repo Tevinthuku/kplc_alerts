@@ -339,7 +339,6 @@ mod tests {
             .unwrap();
 
         // TODO: Fix this type
-        let location_id = LocationId::from(location_id.into_inner());
 
         let notification = repository
             .subscriber_directly_affected(subscriber_id, location_id)
@@ -373,8 +372,6 @@ mod tests {
             })
             .await
             .unwrap();
-
-        let location_id = LocationId::from(location_id.into_inner());
 
         let notification = repository
             .subscriber_potentially_affected(subscriber_id, location_id)

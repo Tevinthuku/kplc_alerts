@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use crate::repository::Repository;
 use anyhow::Context;
+use entities::locations::LocationId;
 use entities::locations::LocationInput;
 use sqlx::types::Json;
-use use_cases::subscriber_locations::data::LocationId;
 
 pub struct NonAcronymString(String);
 
