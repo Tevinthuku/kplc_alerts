@@ -1,7 +1,10 @@
 use anyhow::{Context, Error};
 use bytes::Bytes;
 use lazy_static::lazy_static;
+use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::Response;
+use std::collections::HashMap;
+use thiserror::Error as ThisError;
 
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
@@ -20,6 +23,14 @@ lazy_static! {
 }
 
 pub struct HttpClient;
+
+#[derive(ThisError, Debug)]
+pub enum HttpClientError {
+    #[error(transparent)]
+    ResponseError(#[from] Error),
+    #[error("httpBuilderError {0}")]
+    HTTPBuilderError(String),
+}
 
 impl HttpClient {
     async fn get(url: Url) -> anyhow::Result<Response> {
@@ -52,15 +63,29 @@ impl HttpClient {
             .context("Failed to deserialize response")
     }
 
-    pub async fn post_json<DTO: DeserializeOwned>(url: Url, body: Value) -> anyhow::Result<DTO> {
+    pub async fn post_json<DTO: DeserializeOwned>(
+        url: Url,
+        headers: HashMap<&'static str, String>,
+        body: Value,
+    ) -> Result<DTO, HttpClientError> {
+        let mut header_map = HeaderMap::new();
+
+        for (key, value) in headers.into_iter() {
+            let value = HeaderValue::from_str(&value)
+                .map_err(|err| HttpClientError::HTTPBuilderError(format!("{err} {value}")))?;
+            header_map.insert(key, value);
+        }
         CLIENT
             .post(url)
+            .headers(header_map)
             .json(&body)
             .send()
             .await
-            .context("Failed to get json response")?
+            .context("Failed to get json response")
+            .map_err(HttpClientError::ResponseError)?
             .json::<DTO>()
             .await
             .context("Failed to deserialize response")
+            .map_err(HttpClientError::ResponseError)
     }
 }
