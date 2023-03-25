@@ -269,6 +269,56 @@
     },
     "query": "\n            SELECT value as \"value: Json<LocationSearchApiResponse>\" FROM location.location_search_cache WHERE key = $1\n            "
   },
+  "76d653989592ac763cd84e17ee5b2f093a3e8b3350b7e5fd54838059bf1119db": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "email",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "external_id",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "created_at",
+          "ordinal": 4,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "last_login",
+          "ordinal": 5,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM public.subscriber WHERE id = $1\n            "
+  },
   "8ca5b21d263deca294d82dff8d6a200da5438fb9d6c149cf8c89f85b963c4698": {
     "describe": {
       "columns": [
@@ -334,6 +384,32 @@
       }
     },
     "query": "\n            SELECT id FROM location.subscriber_locations WHERE subscriber_id = $1 AND location_id = $2\n            "
+  },
+  "cf434383b4f134f006bb5b9da0bf96938d17f33ca4fe572ef119a7df83265660": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "UuidArray"
+        ]
+      }
+    },
+    "query": "\n            SELECT id, name FROM location.locations WHERE id = ANY($1)\n            "
   },
   "d7ec2f8ed6d05a940145d400fb3763a583b740888fcfaae8f85141ef58c9bfda": {
     "describe": {

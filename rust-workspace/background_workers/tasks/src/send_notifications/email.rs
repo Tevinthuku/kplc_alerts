@@ -5,12 +5,18 @@ use crate::{
 use celery::error::TaskError;
 use celery::prelude::TaskResultExt;
 use celery::task::TaskResult;
-use entities::notifications::Notification;
+
+use entities::{
+    locations::LocationName,
+    notifications::Notification,
+    power_interruptions::location::{AffectedLine, NairobiTZDateTime},
+    subscriptions::AffectedSubscriber,
+};
 use secrecy::ExposeSecret;
 use serde::Deserialize;
 use serde::Serialize;
 use shared_kernel::http_client::HttpClient;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use url::Url;
 
 const TEMPLATE: &str = "565V4THQRHM19SMJNC6WFKZRVWGR";
@@ -31,10 +37,25 @@ struct AffectedLocation {
     pub end_time: String,
 }
 
+impl AffectedLocation {
+    fn generate(data: AffectedLine<NairobiTZDateTime>, location: &LocationName) -> Self {
+        let date_in_nairobi_time = data.time_frame.from.to_date_time();
+        let date = date_in_nairobi_time.format("%d/%m/%Y");
+        let start_time = date_in_nairobi_time.format("%H:%M");
+        let end_time = data.time_frame.to.to_date_time().format("%H:%M");
+        Self {
+            location: location.to_string(),
+            date: date.to_string(),
+            start_time: start_time.to_string(),
+            end_time: end_time.to_string(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct MessageData {
     pub recipient_name: String,
-    pub affected_state: String,
+    pub affected_state: AffectedState,
     pub link: String,
     pub affected_locations: Vec<AffectedLocation>,
 }
@@ -94,5 +115,58 @@ pub async fn send_email_notification(task: &Self, notification: Notification) ->
 }
 
 async fn generate_email_body(notification: Notification) -> TaskResult<Data> {
-    todo!()
+    let repo = REPO.get().await;
+    let subscriber_id = notification.subscriber.id();
+    let subscriber = repo
+        .find_subscriber_by_id(subscriber_id)
+        .await
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
+    let locations = notification
+        .lines
+        .iter()
+        .map(|line| line.location_matched)
+        .collect::<HashSet<_>>();
+
+    let locations = repo
+        .get_locations_by_ids(locations)
+        .await
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
+
+    let affected_locations = notification
+        .lines
+        .into_iter()
+        .filter_map(|affected_line| {
+            locations
+                .get(&affected_line.location_matched)
+                .map(|location_details| {
+                    AffectedLocation::generate(affected_line, &location_details.name)
+                })
+        })
+        .collect::<Vec<_>>();
+
+    let message = Data {
+        message: Message {
+            to: To {
+                email: subscriber.email.to_string(),
+            },
+            template: TEMPLATE.to_string(),
+            data: MessageData {
+                recipient_name: subscriber.name.to_string(),
+                affected_state: notification.subscriber.into(),
+                link: notification.url.to_string(),
+                affected_locations,
+            },
+        },
+    };
+
+    Ok(message)
+}
+
+impl From<AffectedSubscriber> for AffectedState {
+    fn from(value: AffectedSubscriber) -> Self {
+        match value {
+            AffectedSubscriber::DirectlyAffected(_) => AffectedState::DirectlyAffected,
+            AffectedSubscriber::PotentiallyAffected(_) => AffectedState::PotentiallyAffected,
+        }
+    }
 }
