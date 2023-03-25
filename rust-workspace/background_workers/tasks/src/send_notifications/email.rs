@@ -38,7 +38,7 @@ struct AffectedLocation {
 }
 
 impl AffectedLocation {
-    fn generate(data: AffectedLine<NairobiTZDateTime>, location: &LocationName) -> Self {
+    fn generate(data: &AffectedLine<NairobiTZDateTime>, location: &LocationName) -> Self {
         let date_in_nairobi_time = data.time_frame.from.to_date_time();
         let date = date_in_nairobi_time.format("%d/%m/%Y");
         let start_time = date_in_nairobi_time.format("%H:%M");
@@ -134,7 +134,7 @@ async fn generate_email_body(notification: Notification) -> TaskResult<Data> {
 
     let affected_locations = notification
         .lines
-        .into_iter()
+        .iter()
         .filter_map(|affected_line| {
             locations
                 .get(&affected_line.location_matched)
@@ -143,6 +143,12 @@ async fn generate_email_body(notification: Notification) -> TaskResult<Data> {
                 })
         })
         .collect::<Vec<_>>();
+
+    if affected_locations.is_empty() {
+        return Err(TaskError::UnexpectedError(format!(
+            "The affected locations cannot be empty {notification:?}"
+        )));
+    }
 
     let message = Data {
         message: Message {
