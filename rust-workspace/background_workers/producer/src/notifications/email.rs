@@ -6,8 +6,17 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use std::sync::Arc;
 use tasks::send_notifications::email::send_email_notification;
+
 pub struct EmailStrategy {
-    app: Arc<Celery>,
+    pub(crate) app: Arc<Celery>,
+}
+
+impl EmailStrategy {
+    pub(crate) fn new_strategy(app: Arc<Celery>) -> Arc<dyn DeliveryStrategy> {
+        let strategy = EmailStrategy { app };
+
+        Arc::new(strategy)
+    }
 }
 
 #[async_trait]
@@ -27,7 +36,6 @@ impl DeliveryStrategy for EmailStrategy {
                 // TODO: Setup logging
                 println!("Error sending notification: {e:?}");
                 errors.push(e);
-
             }
         }
 
