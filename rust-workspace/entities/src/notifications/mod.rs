@@ -12,6 +12,13 @@ pub struct Notification {
     pub subscriber: AffectedSubscriber,
     pub lines: Vec<AffectedLine<NairobiTZDateTime>>,
 }
+
+impl Notification {
+    pub fn already_sent(&self) -> bool {
+        self.lines.is_empty()
+    }
+}
+
 #[async_trait]
 pub trait DeliveryStrategy: Send + Sync {
     async fn deliver(&self, notifications: Vec<Notification>) -> anyhow::Result<()>;

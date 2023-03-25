@@ -92,7 +92,17 @@ struct Response {
 
 #[celery::task(max_retries = 200, bind=true, retry_for_unexpected = false, on_failure = failure_callback)]
 pub async fn send_email_notification(task: &Self, notification: Notification) -> TaskResult<()> {
-    let body = generate_email_body(notification).await?;
+    let repo = REPO.get().await;
+    let notification = repo
+        .filter_email_notification_by_those_already_sent(notification)
+        .await
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
+
+    if notification.already_sent() {
+        return Ok(());
+    }
+
+    let body = generate_email_body(&notification).await?;
     let settings = &SETTINGS_CONFIG.email;
     let url = Url::parse(&settings.host)
         .with_unexpected_err(|| format!("Invalid url {}", &settings.host))?;
@@ -106,15 +116,16 @@ pub async fn send_email_notification(task: &Self, notification: Notification) ->
         .as_json()
         .with_unexpected_err(|| "Failed to convert the body to a valid json")?;
 
-    // TODO: Save response.request_id in the notifications table as an external_id
     let response = HttpClient::post_json::<Response>(url, headers, body)
         .await
-        .map_err(|err| TaskError::ExpectedError(format!("{err}")))?;
+        .map_err(|err| TaskError::ExpectedError(err.to_string()))?;
 
-    Ok(())
+    repo.save_email_notification_sent(&notification, response.request_id)
+        .await
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))
 }
 
-async fn generate_email_body(notification: Notification) -> TaskResult<Data> {
+async fn generate_email_body(notification: &Notification) -> TaskResult<Data> {
     let repo = REPO.get().await;
     let subscriber_id = notification.subscriber.id();
     let subscriber = repo

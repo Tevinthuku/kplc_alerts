@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use crate::repository::Repository;
 use anyhow::Context;
 use entities::{notifications::Notification, subscriptions::AffectedSubscriber};
@@ -12,6 +14,14 @@ struct NotificationInsert {
     line: String,
     location_matched: Uuid,
     external_id: String,
+    strategy_id: Uuid,
+}
+
+#[derive(sqlx::FromRow, Debug, PartialEq, Eq, Hash, Clone)]
+struct DbNotificationIdempotencyKey {
+    source_id: Uuid,
+    subscriber_id: Uuid,
+    line: String,
     strategy_id: Uuid,
 }
 
@@ -89,6 +99,80 @@ impl Repository {
             .await?;
 
         Ok(())
+    }
+
+    pub async fn filter_email_notification_by_those_already_sent(
+        &self,
+        notification: Notification,
+    ) -> anyhow::Result<Notification> {
+        let source_id = self.get_source_by_url(&notification.url).await?;
+
+        let email_strategy_id = self.get_email_id().await?;
+
+        let subscriber_id = notification.subscriber.id().inner();
+
+        let mapping_of_idempotency_key_to_affected_location = notification
+            .lines
+            .iter()
+            .map(|data| {
+                (
+                    DbNotificationIdempotencyKey {
+                        source_id,
+                        subscriber_id,
+                        line: data.line.to_owned(),
+                        strategy_id: email_strategy_id,
+                    },
+                    data.clone(),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        let keys = mapping_of_idempotency_key_to_affected_location
+            .keys()
+            .cloned()
+            .collect::<HashSet<_>>();
+
+        let lines = notification
+            .lines
+            .iter()
+            .map(|data| data.line.clone())
+            .collect_vec();
+
+        let inserted_lines = sqlx::query!(
+                "SELECT source_id, subscriber_id, line, strategy_id FROM communication.notifications 
+                WHERE source_id = $1 AND subscriber_id = $2 AND line = ANY($3) AND strategy_id = $4",
+                source_id,
+                subscriber_id,
+                &lines[..],
+                email_strategy_id
+            )
+            .fetch_all(self.pool())
+            .await.map(|data| {
+                data.into_iter().map(|record| {
+                    DbNotificationIdempotencyKey {
+                        source_id: record.source_id,
+                        subscriber_id: record.subscriber_id,
+                        line: record.line,
+                        strategy_id: record.strategy_id,
+                    }
+                }).collect::<HashSet<_>>()
+            })
+            .context("Failed to get already send notifications")?;
+
+        let difference = keys
+            .difference(&inserted_lines)
+            .into_iter()
+            .filter_map(|key| {
+                mapping_of_idempotency_key_to_affected_location
+                    .get(key)
+                    .cloned()
+            })
+            .collect_vec();
+
+        Ok(Notification {
+            lines: difference,
+            ..notification
+        })
     }
 
     async fn get_source_by_url(&self, url: &Url) -> anyhow::Result<Uuid> {
