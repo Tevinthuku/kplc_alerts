@@ -1,5 +1,23 @@
 {
   "db": "PostgreSQL",
+  "1633c34c3f83b52c72a5b664e8f1284b347dc1134b9c008f5d73647682aaa698": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "UuidArray",
+          "BoolArray",
+          "UuidArray",
+          "TextArray",
+          "UuidArray",
+          "UuidArray",
+          "TextArray"
+        ]
+      }
+    },
+    "query": "\n                INSERT INTO communication.notifications(source_id, directly_affected, subscriber_id, line, strategy_id, location_id_matched, external_id)\n                SELECT * FROM UNNEST($1::uuid[], $2::bool[], $3::uuid[], $4::text[], $5::uuid[], $6::uuid[], $7::text[]) ON CONFLICT DO NOTHING\n                "
+  },
   "2f273f726b1261f1e0bf8f6bdbe6786d23bfb0b13a23120eb500f3367818379c": {
     "describe": {
       "columns": [],
@@ -319,6 +337,26 @@
     },
     "query": "\n            SELECT * FROM public.subscriber WHERE id = $1\n            "
   },
+  "80d5fe3abd56cd212bc5ced8310cba0762b633c75e904710a65d7653e02a908d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT id FROM communication.strategies WHERE name = $1"
+  },
   "8ca5b21d263deca294d82dff8d6a200da5438fb9d6c149cf8c89f85b963c4698": {
     "describe": {
       "columns": [
@@ -363,6 +401,26 @@
       }
     },
     "query": "\n            INSERT INTO location.line_schedule(line_id, schedule_id)\n            SELECT * FROM UNNEST($1::uuid[], $2::uuid[]) ON CONFLICT DO NOTHING\n            "
+  },
+  "c35d5c2f0aa0c53824203b87238441f5ea082bcfecf6cb30d9d1e11d670a1f09": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT id FROM public.source WHERE url = $1"
   },
   "c9196fb2338d14fe601d614f6f403966c5ab9b1d84a667d93d97bae69edfd08f": {
     "describe": {
