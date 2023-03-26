@@ -17,6 +17,7 @@ struct EmailConfig {
     host: Url,
     auth_token: Secret<String>,
     address_to_alert: String,
+    dry_run_template_id: String,
 }
 
 lazy_static! {
@@ -24,8 +25,6 @@ lazy_static! {
         .expect("Expected to have the configuration set")
         .email;
 }
-
-const TEMPLATE_ID: &str = "GGAB2KK5K340DPQX46EX01DQAG4H";
 
 #[derive(Serialize, Deserialize)]
 struct Data {
@@ -54,7 +53,7 @@ pub async fn send_alert(alert_message: impl ToString) -> anyhow::Result<()> {
             to: To {
                 email: EMAIL.address_to_alert.to_string(),
             },
-            template: TEMPLATE_ID.to_string(),
+            template: EMAIL.dry_run_template_id.to_string(),
             data: Data {
                 error_message: alert_message.to_string(),
             },

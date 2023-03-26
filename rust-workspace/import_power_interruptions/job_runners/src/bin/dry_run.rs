@@ -18,7 +18,6 @@ impl FileOperations for DryRunFileOps {
         Ok(())
     }
     async fn return_unprocessed_files(&self, files: Vec<Url>) -> anyhow::Result<Vec<Url>> {
-        println!("{files:?}");
         // We can assume that the first item in the list is the newest entry and so we return it as unprocessed;
         let files = files.first().map(|url| vec![url.clone()]).unwrap_or(files);
         Ok(files)
