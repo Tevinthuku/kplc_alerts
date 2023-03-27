@@ -37,7 +37,7 @@ pub trait LocationSearchInteractor {
         &self,
         actor: &dyn Actor,
         text: String,
-    ) -> anyhow::Result<Vec<LocationApiResponse>>;
+    ) -> anyhow::Result<LocationResponseWithStatus>;
 }
 
 pub struct LocationSearchInteractorImpl {
@@ -63,11 +63,9 @@ impl LocationSearchInteractor for LocationSearchInteractorImpl {
         &self,
         actor: &dyn Actor,
         text: String,
-    ) -> anyhow::Result<Vec<LocationApiResponse>> {
+    ) -> anyhow::Result<LocationResponseWithStatus> {
         // you just need to be authenticated in order to do the search
         let _ = self.subscriber_resolver.resolve_from_actor(actor).await?;
-        self.search_api.search(text).await;
-
-        todo!()
+        self.search_api.search(text).await
     }
 }

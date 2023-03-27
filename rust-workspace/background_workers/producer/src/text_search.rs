@@ -1,6 +1,13 @@
+use crate::producer::Producer;
 use anyhow::Context;
 use async_trait::async_trait;
+use futures::FutureExt;
 use redis_client::client::CLIENT;
+use std::str::FromStr;
+use std::string::ToString;
+use strum_macros::Display;
+use strum_macros::EnumString;
+use tasks::utils::progress_tracking::{get_progress_status, set_progress_status, TaskStatus};
 use tasks::{
     configuration::REPO,
     text_search::{generate_search_url, search_locations_by_text},
@@ -8,8 +15,6 @@ use tasks::{
 use use_cases::search_for_locations::{
     LocationApiResponse, LocationResponseWithStatus, LocationSearchApi, Status,
 };
-
-use crate::producer::Producer;
 
 #[async_trait]
 impl LocationSearchApi for Producer {
@@ -32,25 +37,24 @@ impl LocationSearchApi for Producer {
                 status: Status::Success,
             });
         }
-        let progress_tracker = CLIENT.get().await;
 
-        let progress = progress_tracker.get_status::<_, Status>(&text).await?;
+        let progress = get_progress_status::<String, _>(&text, |val| match val {
+            Some(val) => TaskStatus::from_str(&val).context("Invalid progress type"),
+            None => Ok(TaskStatus::Pending),
+        })
+        .await?;
 
-        if let Some(progress) = progress {
-            let progress = if matches!(progress, Status::Success) {
-                /// return pending here, so that the client can make the call again to the backend
-                /// which will then be handled by the cached result
-                Status::Pending
-            } else {
-                progress
-            };
+        if matches!(progress, TaskStatus::Pending | TaskStatus::Failure) {
             return Ok(LocationResponseWithStatus {
                 responses: Default::default(),
-                status: progress,
+                status: progress.into(),
             });
         }
 
-        let status = progress_tracker.set_status(&text, Status::Pending).await?;
+        let status = set_progress_status(&text, TaskStatus::Pending.to_string(), |val| {
+            TaskStatus::from_str(&val).context("Invalid progress type")
+        })
+        .await?;
 
         self.app
             .send_task(search_locations_by_text::new(text))
@@ -59,7 +63,7 @@ impl LocationSearchApi for Producer {
 
         Ok(LocationResponseWithStatus {
             responses: Default::default(),
-            status,
+            status: status.into(),
         })
     }
 }
