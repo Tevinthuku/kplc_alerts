@@ -38,13 +38,21 @@ impl LocationSearchApi for Producer {
             });
         }
 
-        let progress = get_progress_status::<String, _>(&text, |val| match val {
-            Some(val) => TaskStatus::from_str(&val).context("Invalid progress type"),
-            None => Ok(TaskStatus::Pending),
+        let progress = get_progress_status::<String, _>(&text, |val| {
+            val.map(|val| TaskStatus::from_str(&val).context("Invalid progress type"))
+                .transpose()
         })
         .await?;
 
-        if matches!(progress, TaskStatus::Pending | TaskStatus::Failure) {
+        if let Some(progress) = progress {
+            // for Success or Pending, just return Pending,
+            if matches!(progress, TaskStatus::Pending | TaskStatus::Success) {
+                return Ok(LocationResponseWithStatus {
+                    responses: Default::default(),
+                    status: Status::Pending,
+                });
+            }
+
             return Ok(LocationResponseWithStatus {
                 responses: Default::default(),
                 status: progress.into(),

@@ -6,7 +6,7 @@ use std::str::FromStr;
 use strum_macros::{Display, EnumString};
 use use_cases::search_for_locations::Status;
 
-#[derive(Debug, PartialEq, EnumString, Display)]
+#[derive(Debug, PartialEq, EnumString, Display, Copy, Clone)]
 pub enum TaskStatus {
     Pending,
     Success,
@@ -49,9 +49,9 @@ where
         .map(|status| mapper(status))?
 }
 
-pub async fn get_progress_status<V, F>(key: &str, mapper: F) -> anyhow::Result<TaskStatus>
+pub async fn get_progress_status<V, F>(key: &str, mapper: F) -> anyhow::Result<Option<TaskStatus>>
 where
-    F: FnOnce(Option<V>) -> anyhow::Result<TaskStatus>,
+    F: FnOnce(Option<V>) -> anyhow::Result<Option<TaskStatus>>,
     V: FromRedisValue,
 {
     let progress_tracker = CLIENT.get().await;
