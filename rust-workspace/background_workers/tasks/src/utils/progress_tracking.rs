@@ -6,6 +6,8 @@ use std::str::FromStr;
 use strum_macros::{Display, EnumString};
 use use_cases::search_for_locations::Status;
 
+const PROGRESS_TRACKING_PREFIX: &str = "progress";
+
 #[derive(Debug, PartialEq, EnumString, Display, Copy, Clone)]
 pub enum TaskStatus {
     Pending,
@@ -33,16 +35,18 @@ impl From<TaskStatus> for Status {
     }
 }
 
-pub async fn set_progress_status<S, F>(
-    key: &str,
-    status: S,
-    mapper: F,
-) -> anyhow::Result<TaskStatus>
+pub fn generate_key(key: &str) -> String {
+    format!("{PROGRESS_TRACKING_PREFIX}:{key}")
+}
+
+pub async fn set_progress_status<S, F, C>(key: &str, status: S, mapper: F) -> anyhow::Result<C>
 where
-    F: FnOnce(S) -> anyhow::Result<TaskStatus>,
+    F: FnOnce(S) -> anyhow::Result<C>,
     S: FromRedisValue + ToRedisArgs,
 {
+    let key = generate_key(key);
     let progress_tracker = CLIENT.get().await;
+
     progress_tracker
         .set_status::<_, S>(key, status)
         .await
@@ -54,6 +58,7 @@ where
     F: FnOnce(Option<V>) -> anyhow::Result<Option<TaskStatus>>,
     V: FromRedisValue,
 {
+    let key = generate_key(key);
     let progress_tracker = CLIENT.get().await;
     let progress = progress_tracker.get_status::<_, V>(key).await?;
     mapper(progress)

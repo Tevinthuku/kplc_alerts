@@ -5,8 +5,11 @@ use async_trait::async_trait;
 use entities::locations::ExternalLocationId;
 use entities::locations::LocationId;
 use entities::subscriptions::SubscriberId;
+use shared_kernel::string_key;
 use std::sync::Arc;
 use uuid::Uuid;
+
+string_key!(TaskId);
 
 #[async_trait]
 pub trait SubscribeToLocationInteractor: Send + Sync {
@@ -14,7 +17,7 @@ pub trait SubscribeToLocationInteractor: Send + Sync {
         &self,
         actor: &dyn Actor,
         location: LocationInput<String>,
-    ) -> anyhow::Result<()>;
+    ) -> anyhow::Result<TaskId>;
 }
 
 #[async_trait]
@@ -57,7 +60,7 @@ pub trait LocationSubscriber: Send + Sync {
         &self,
         location: LocationInput<ExternalLocationId>,
         subscriber: SubscriberId,
-    ) -> anyhow::Result<()>;
+    ) -> anyhow::Result<TaskId>;
 }
 
 #[async_trait]
@@ -66,7 +69,7 @@ impl SubscribeToLocationInteractor for SubscribeToLocationImpl {
         &self,
         actor: &dyn Actor,
         location: LocationInput<String>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<TaskId> {
         let id = self.subscriber_resolver.resolve_from_actor(actor).await?;
         let location = LocationInput {
             id: ExternalLocationId::new(location.id),
