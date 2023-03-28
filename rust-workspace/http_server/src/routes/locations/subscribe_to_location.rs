@@ -7,6 +7,8 @@ use crate::{
     use_case_app_container::UseCaseAppContainer,
 };
 
+use super::search_locations::StatusResponse;
+
 #[derive(Deserialize)]
 struct LocationSubscriptionRequest {
     location: String,
@@ -48,9 +50,34 @@ async fn subscribe_to_location(
     }))
 }
 
+#[derive(Serialize)]
+struct StatusWrapper {
+    data: StatusResponse,
+}
+
+async fn get_progress_status(
+    app: web::Data<UseCaseAppContainer>,
+    task_id: web::Path<String>,
+    req: HttpRequest,
+) -> Result<web::Json<StatusWrapper>, ApiError> {
+    let interactor = app.get_client().subscribe_to_location();
+    let user: AuthenticatedUserInfo = (&req).try_into()?;
+    let task_id = task_id.into_inner().into();
+    let result = interactor
+        .progress(&user, task_id)
+        .await
+        .map_err(ApiError::InternalServerError)?;
+    Ok(web::Json(StatusWrapper {
+        data: result.into(),
+    }))
+}
+
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/subscribe")
-            .service(web::resource("").route(web::post().to(subscribe_to_location))),
+            .service(web::resource("").route(web::post().to(subscribe_to_location)))
+            .service(
+                web::resource("/progress/{task_id}").route(web::get().to(get_progress_status)),
+            ),
     );
 }

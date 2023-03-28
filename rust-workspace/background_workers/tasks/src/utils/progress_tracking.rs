@@ -13,6 +13,7 @@ pub enum TaskStatus {
     Pending,
     Success,
     Failure,
+    NotFound,
 }
 
 impl From<Status> for TaskStatus {
@@ -21,6 +22,7 @@ impl From<Status> for TaskStatus {
             Status::Pending => TaskStatus::Pending,
             Status::Success => TaskStatus::Success,
             Status::Failure => TaskStatus::Failure,
+            Status::NotFound => TaskStatus::NotFound,
         }
     }
 }
@@ -31,6 +33,7 @@ impl From<TaskStatus> for Status {
             TaskStatus::Pending => Status::Pending,
             TaskStatus::Success => Status::Success,
             TaskStatus::Failure => Status::Failure,
+            TaskStatus::NotFound => Self::NotFound,
         }
     }
 }
@@ -44,13 +47,12 @@ where
     F: FnOnce(S) -> anyhow::Result<C>,
     S: FromRedisValue + ToRedisArgs,
 {
-    let key = generate_key(key);
     let progress_tracker = CLIENT.get().await;
-
+    let key = generate_key(key);
     progress_tracker
         .set_status::<_, S>(key, status)
         .await
-        .map(|status| mapper(status))?
+        .map(mapper)?
 }
 
 pub async fn get_progress_status<V, F>(key: &str, mapper: F) -> anyhow::Result<Option<TaskStatus>>
@@ -58,8 +60,9 @@ where
     F: FnOnce(Option<V>) -> anyhow::Result<Option<TaskStatus>>,
     V: FromRedisValue,
 {
-    let key = generate_key(key);
     let progress_tracker = CLIENT.get().await;
+    let key = generate_key(key);
+
     let progress = progress_tracker.get_status::<_, V>(key).await?;
     mapper(progress)
 }

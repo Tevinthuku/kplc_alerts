@@ -12,7 +12,8 @@ use sqlx_postgres::locations::insert_location::LocationInput;
 use url::Url;
 
 use crate::{
-    send_notifications::email::send_email_notification, utils::get_token::get_token_count,
+    send_notifications::email::send_email_notification,
+    utils::{get_token::get_token_count, progress_tracking::generate_key},
 };
 use entities::locations::LocationId;
 use redis_client::client::CLIENT;
@@ -22,8 +23,7 @@ use sqlx_postgres::cache::location_search::StatusCode;
 use use_cases::subscriber_locations::subscribe_to_location::TaskId;
 use uuid::Uuid;
 
-use crate::constants::GOOGLE_API_TOKEN_KEY;
-use crate::utils::progress_tracking::{get_progress_status, set_progress_status};
+use crate::utils::progress_tracking::set_progress_status;
 use crate::{
     configuration::{REPO, SETTINGS_CONFIG},
     utils::callbacks::failure_callback,
@@ -89,10 +89,11 @@ pub async fn get_and_subscribe_to_nearby_location(
 }
 
 async fn decr_count_by_one(task_id: TaskId) -> TaskResult<()> {
+    let key = generate_key(task_id.as_ref());
     let client = CLIENT.get().await;
 
     client
-        .decr_count(task_id.as_ref(), 1)
+        .decr_count(&key, 1)
         .await
         .map_err(|err| TaskError::UnexpectedError(err.to_string()))
 }
@@ -106,7 +107,7 @@ pub async fn fetch_and_subscribe_to_locations(
     task_id: TaskId,
 ) -> TaskResult<()> {
     let total_count_locations = nearby_locations.len() + 1;
-    set_progress_status(task_id.as_ref(), total_count_locations, |v| Ok(()))
+    set_progress_status(task_id.as_ref(), total_count_locations, |_| Ok(()))
         .await
         .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
     let id = try_get_location_from_cache(&primary_location).await?;

@@ -13,6 +13,7 @@ pub enum Status {
     Pending,
     Success,
     Failure,
+    NotFound,
 }
 
 pub struct LocationApiResponse {

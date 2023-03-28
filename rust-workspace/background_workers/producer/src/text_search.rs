@@ -22,6 +22,7 @@ impl LocationSearchApi for Producer {
         let repository = REPO.get().await;
         let url = generate_search_url(text.clone())?;
         let cached_response = repository.get_cached_text_search_response(&url).await?;
+
         if let Some(response) = cached_response {
             let responses = response
                 .predictions

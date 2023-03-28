@@ -19,15 +19,17 @@ impl From<Status> for StatusResponse {
             Status::Pending => StatusResponse::Pending,
             Status::Success => StatusResponse::Success,
             Status::Failure => StatusResponse::Failure,
+            Status::NotFound => StatusResponse::NotFound,
         }
     }
 }
 
 #[derive(Serialize)]
-enum StatusResponse {
+pub enum StatusResponse {
     Pending,
     Success,
     Failure,
+    NotFound,
 }
 
 #[derive(Serialize)]
