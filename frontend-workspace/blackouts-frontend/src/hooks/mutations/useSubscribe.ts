@@ -43,6 +43,7 @@ async function subscribeToLocation(url: string, { arg }: { arg: Props }) {
 type SubscribeProps = {
   onSuccess: Function;
 };
+
 export function useSubscribeToLocation(props: SubscribeProps) {
   const [isLoading, setIsLoading] = React.useState(false);
   const [taskId, setTaskId] = React.useState<string | null>(null);
