@@ -14,30 +14,27 @@ instance.defaults.headers.common["Content-Type"] = "application/json";
 
 function App() {
   const { isAuthenticated, token } = useAuth();
-  console.log(token);
   return (
     <div>
       <div />
-      <Layout>
-        {token && isAuthenticated ? (
-          <SWRConfig
-            value={{
-              fetcher: async (resource, init) => {
-                instance.defaults.headers.common[
-                  "Authorization"
-                ] = `Bearer ${token}`;
-                const apiURL = `/api${resource}`;
-                const res = await instance(apiURL);
-                return await res.data;
-              },
-            }}
-          >
-            <RouterProvider router={router} />
-          </SWRConfig>
-        ) : (
-          <Login />
-        )}
-      </Layout>
+      {token && isAuthenticated ? (
+        <SWRConfig
+          value={{
+            fetcher: async (resource, init) => {
+              instance.defaults.headers.common[
+                "Authorization"
+              ] = `Bearer ${token}`;
+              const apiURL = `/api${resource}`;
+              const res = await instance(apiURL);
+              return await res.data;
+            },
+          }}
+        >
+          <RouterProvider router={router} />
+        </SWRConfig>
+      ) : (
+        <Login />
+      )}
     </div>
   );
 }

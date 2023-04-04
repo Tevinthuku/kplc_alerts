@@ -57,9 +57,8 @@ function AuthConsumer(props: React.PropsWithChildren<Props>) {
       if (isAuthenticated && details) {
         try {
           const token = await getAccessTokenSilently();
-          const formattedToken = token.replace(/(\r\n|\n|\r)/gm, "");
-          const _ = await trigger({ ...details, token: formattedToken });
-          setToken(formattedToken);
+          const _ = await trigger({ ...details, token });
+          setToken(token);
           setIsAuth(true);
         } catch (e) {
           console.log(e);
@@ -77,4 +76,13 @@ function AuthConsumer(props: React.PropsWithChildren<Props>) {
 
 export function useAuth() {
   return useContext(AuthContext);
+}
+
+export function useToken() {
+  const { token } = useAuth();
+  if (token == null) {
+    throw Error("Token not found");
+  }
+
+  return token;
 }
