@@ -14,6 +14,8 @@ import styled from "@emotion/styled";
 import AddLocationAltTwoToneIcon from "@mui/icons-material/AddLocationAltTwoTone";
 import AdjuscentLocations from "./AdjuscentLocations";
 import { useSubscribeToLocation } from "../../../hooks/mutations/useSubscribe";
+import { mutate } from "swr";
+import { useNavigate } from "react-router-dom";
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & {
@@ -35,9 +37,11 @@ export default function DrawerOnSelectLocation(props: Props) {
     LocationSearchData[]
   >([]);
   const { location, setDrawerState } = props;
+  const navigate = useNavigate();
 
   const onSuccess = () => {
-    console.log("Success");
+    mutate("/locations/list/subscribed");
+    navigate("/subscribed");
   };
 
   const { isLoading, trigger } = useSubscribeToLocation({
@@ -117,7 +121,7 @@ export default function DrawerOnSelectLocation(props: Props) {
                 <Grid item xs={11}>
                   <StyledTypography>
                     Are you sure you want to subscribe to <b>{location.name}</b>{" "}
-                    at <b>{location.address} ?</b>
+                    - <b>{location.address} ?</b>
                   </StyledTypography>
                 </Grid>
               </Grid>
@@ -128,10 +132,10 @@ export default function DrawerOnSelectLocation(props: Props) {
             <Box>
               <Typography variant="h6">Add nearby Locations</Typography>
               <Typography>
-                KPLC might not mention your selected location, but they might
-                mention locations near you. To increase your chances of being
-                notified, select a couple of nearby locations so that you are in
-                the loop when those locations are affected.
+                KPLC might or might not mention the above selected location. To
+                increase your chances of being notified, select a couple of
+                nearby locations, so you get notified when the nearby locations
+                are affected.
               </Typography>
             </Box>
             <StyledAdjuscentLocations>

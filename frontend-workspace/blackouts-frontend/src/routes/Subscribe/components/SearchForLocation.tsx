@@ -53,6 +53,11 @@ export default function SearchForLocation(props: Props) {
     setSearchTerm(val);
   };
 
+  const onSelectLocation = (location: LocationSearchData) => {
+    props.onSelectLocation(location);
+    setSearchTerm("");
+  };
+
   return (
     <div>
       <SearchBox
@@ -61,7 +66,7 @@ export default function SearchForLocation(props: Props) {
       />
 
       {data && data.status === "Success" && data.items.length > 0 && (
-        <ListOfLocations items={data.items} onClick={props.onSelectLocation} />
+        <ListOfLocations items={data.items} onClick={onSelectLocation} />
       )}
       {data && data.status === "Pending" && (
         <div>

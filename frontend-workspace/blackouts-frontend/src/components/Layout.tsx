@@ -43,6 +43,7 @@ const listItemButtonStyle = {
 const DrawerItems = () => {
   const { logout } = useAuth0();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   return (
     <div>
@@ -51,6 +52,7 @@ const DrawerItems = () => {
       <List>
         <ListItem disablePadding>
           <ListItemButton
+            selected={pathname === "/"}
             sx={listItemButtonStyle}
             onClick={() => {
               navigate("/");
@@ -64,6 +66,7 @@ const DrawerItems = () => {
         </ListItem>
         <ListItem disablePadding>
           <ListItemButton
+            selected={pathname === "/subscribed"}
             sx={listItemButtonStyle}
             onClick={() => {
               navigate("/subscribed");
