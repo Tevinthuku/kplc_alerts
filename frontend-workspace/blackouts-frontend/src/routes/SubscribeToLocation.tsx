@@ -16,11 +16,18 @@ function useAutoComplete() {
 }
 
 export default function SubscribeToLocation() {
-  const { data, setSearchTerm } = useAutoComplete();
+  const { data, searchTerm, setSearchTerm } = useAutoComplete();
+
+  const handleChangeSearchTerm = (val: string) => {
+    setSearchTerm(val);
+  };
 
   return (
     <div>
-      <SearchBox />
+      <SearchBox
+        handleChangeSearchTerm={handleChangeSearchTerm}
+        value={searchTerm}
+      />
     </div>
   );
 }
