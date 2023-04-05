@@ -30,14 +30,18 @@ export const AuthContext = createContext(defaultValues);
 
 type Props = {};
 
+const domain = import.meta.env.VITE_AUTH_DOMAIN;
+const clientId = import.meta.env.VITE_AUTH_CLIENT_ID;
+const audience = import.meta.env.VITE_AUTH_AUDIENCE;
+
 export default function AuthProv(props: React.PropsWithChildren<Props>) {
   return (
     <Auth0Provider
-      domain="blackouts-development.eu.auth0.com"
-      clientId="AvpZjg5KXcdiZip56F2tYt69lM1GiABm"
+      domain={domain}
+      clientId={clientId}
       authorizationParams={{
-        redirect_uri: `${window.location.origin}/authenticated`,
-        audience: "https://blackouts.co.ke",
+        redirect_uri: `${window.location.origin}/`,
+        audience,
       }}
     >
       <AuthConsumer>{props.children}</AuthConsumer>

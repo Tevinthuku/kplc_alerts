@@ -1,8 +1,4 @@
-import "./App.css";
-import { useAuth0 } from "@auth0/auth0-react";
-import { useEffect } from "react";
 import Login from "./components/Login";
-import Layout from "./components/Layout";
 import { RouterProvider } from "react-router-dom";
 import { router } from "./routes";
 import { SWRConfig } from "swr";
