@@ -8,7 +8,7 @@ use crate::repository::Repository;
 use crate::save_import_input::counties::{DbCounty, DbCountyId};
 use async_trait::async_trait;
 use entities::power_interruptions::location::{
-    Area, County, FutureOrCurrentNairobiTZDateTime, NairobiTZDateTime, Region, TimeFrame,
+    Area, FutureOrCurrentNairobiTZDateTime, NairobiTZDateTime, Region, TimeFrame,
 };
 use url::Url;
 use use_cases::import_affected_areas::SaveBlackoutAffectedAreasRepo;
@@ -213,24 +213,14 @@ impl DbLine {
             .map(|line| (line.name, line.id))
             .collect::<HashMap<_, _>>();
 
-        struct LineIdWithScheduleId {
-            line_id: Uuid,
-            schedule_id: Uuid,
-        }
-
-        let insert = lines
+        let (line_ids, schedule_ids): (Vec<_>, Vec<_>) = lines
             .iter()
             .filter_map(|line| {
                 mapping_of_line_id_to_name
                     .get(&line.name)
-                    .map(|line_id| LineIdWithScheduleId {
-                        line_id: *line_id,
-                        schedule_id: line.blackout_schedule,
-                    })
+                    .map(|line_id| (*line_id, line.blackout_schedule))
             })
-            .collect::<Vec<_>>();
-        let line_ids = insert.iter().map(|line| line.line_id).collect_vec();
-        let schedule_ids = insert.iter().map(|line| line.schedule_id).collect_vec();
+            .unzip();
 
         sqlx::query!(
             "
