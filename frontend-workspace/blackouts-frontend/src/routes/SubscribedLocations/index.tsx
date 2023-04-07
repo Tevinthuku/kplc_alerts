@@ -15,6 +15,7 @@ import DeleteTwoToneIcon from "@mui/icons-material/DeleteTwoTone";
 import NearMeTwoToneIcon from "@mui/icons-material/NearMeTwoTone";
 import { useDeleteLocationSubscription } from "./useDeleteSubscribedLocation";
 import Avatar from "@mui/material/Avatar";
+import UnsubscribeDialog from "./UnsubscribeDialog";
 
 type AdjuscentLocation = {
   id: string;
@@ -64,14 +65,14 @@ export default function SubscribedLocations() {
 function Location({ location }: { location: Location }) {
   const [open, setOpen] = React.useState(false);
 
-  const { trigger } = useDeleteLocationSubscription(location.id);
+  const [openDialog, setOpenDialog] = React.useState(false);
 
   const handleToggleAdjuscentLocations = () => {
     setOpen(!open);
   };
-  const handleDeleteSubscribed = async () => {
-    await trigger();
-    mutate("/locations/list/subscribed");
+
+  const handleCloseAlertDialog = () => {
+    setOpenDialog(false);
   };
   return (
     <>
@@ -84,7 +85,7 @@ function Location({ location }: { location: Location }) {
           secondary={location.address}
           onClick={handleToggleAdjuscentLocations}
         />
-        <ListItemIcon onClick={handleDeleteSubscribed}>
+        <ListItemIcon onClick={() => setOpenDialog(true)}>
           <DeleteTwoToneIcon />
         </ListItemIcon>
         {location.adjuscent_locations.length > 0 ? (
@@ -103,6 +104,11 @@ function Location({ location }: { location: Location }) {
           />
         )}
       </ListItemButton>
+      <UnsubscribeDialog
+        open={openDialog}
+        location={location}
+        closeDialog={handleCloseAlertDialog}
+      />
       {location && (
         <Collapse in={open} timeout="auto" unmountOnExit>
           <List component="div" disablePadding>
