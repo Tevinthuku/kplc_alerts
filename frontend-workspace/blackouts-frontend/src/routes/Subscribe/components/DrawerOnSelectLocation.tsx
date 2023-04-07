@@ -13,7 +13,7 @@ import SearchForLocation, { LocationSearchData } from "./SearchForLocation";
 import styled from "@emotion/styled";
 import AddLocationAltTwoToneIcon from "@mui/icons-material/AddLocationAltTwoTone";
 import AdjuscentLocations from "./AdjuscentLocations";
-import { useSubscribeToLocation } from "../../../hooks/mutations/useSubscribe";
+import { useSubscribeToLocation } from "../useSubscribe";
 import { mutate } from "swr";
 import { useNavigate } from "react-router-dom";
 

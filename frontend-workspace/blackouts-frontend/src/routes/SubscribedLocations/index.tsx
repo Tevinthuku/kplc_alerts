@@ -16,7 +16,7 @@ import StarBorder from "@mui/icons-material/StarBorder";
 import MyLocationTwoToneIcon from "@mui/icons-material/MyLocationTwoTone";
 import DeleteTwoToneIcon from "@mui/icons-material/DeleteTwoTone";
 import NearMeTwoToneIcon from "@mui/icons-material/NearMeTwoTone";
-import { useDeleteLocationSubscription } from "../../hooks/mutations/useDeleteSubscribedLocation";
+import { useDeleteLocationSubscription } from "./useDeleteSubscribedLocation";
 
 type AdjuscentLocation = {
   id: string;
