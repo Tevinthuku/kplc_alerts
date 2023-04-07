@@ -3,7 +3,6 @@
 import React from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import LoginTwoToneIcon from "@mui/icons-material/LoginTwoTone";
-import Button from "@mui/material/Button";
 import { Grid } from "@mui/material";
 import { ReactComponent as LeftDoodle } from "./LeftDoodle.svg";
 import { ReactComponent as RightDoodle } from "./RightDoodle.svg";

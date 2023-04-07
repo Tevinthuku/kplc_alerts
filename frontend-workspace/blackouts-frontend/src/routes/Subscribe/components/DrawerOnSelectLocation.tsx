@@ -50,6 +50,7 @@ export default function DrawerOnSelectLocation(props: Props) {
   const handleClose = () => {
     if (isLoading) return;
     setDrawerState(false);
+    setAdjuscentLocations([]);
   };
 
   const onSelectAdjuscentLocations = (location: LocationSearchData) => {
