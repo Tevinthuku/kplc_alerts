@@ -102,7 +102,7 @@ impl Repository {
         let time_frame = area.time_frame.clone();
         let candidates = &area.locations;
 
-        let mapping_of_searcheable_candidate_to_candidate = candidates
+        let mapping_of_searcheable_location_candidate_to_candidate = candidates
             .iter()
             .map(|candidate| {
                 (
@@ -112,20 +112,26 @@ impl Repository {
             })
             .collect::<HashMap<_, _>>();
 
-        let mapping_of_searcheable_candidate_to_candidate_copy =
-            mapping_of_searcheable_candidate_to_candidate.clone();
+        let mapping_of_searcheable_location_candidate_to_candidate_copy =
+            mapping_of_searcheable_location_candidate_to_candidate.clone();
 
-        let searcheable_candidates = mapping_of_searcheable_candidate_to_candidate
+        let searcheable_candidates = mapping_of_searcheable_location_candidate_to_candidate
             .keys()
             .map(|candidate| candidate.as_ref())
             .collect_vec();
 
+        let searcheable_area_names = area
+            .name
+            .split(",")
+            .map(|s| SearcheableCandidate::from(s))
+            .collect_vec();
+
         let (directly_affected_subscribers, mapping_of_subscriber_to_directly_affected_locations) =
             self.directly_affected_subscribers(
-                area.name.clone(),
+                &searcheable_area_names,
                 &searcheable_candidates,
                 &time_frame,
-                &mapping_of_searcheable_candidate_to_candidate,
+                &mapping_of_searcheable_location_candidate_to_candidate,
             )
             .await?;
 
@@ -133,9 +139,10 @@ impl Repository {
 
         let potentially_affected_subscribers = self
             .potentially_affected_subscribers(
-                searcheable_candidates,
+                &searcheable_area_names,
+                &searcheable_candidates,
                 &time_frame,
-                mapping_of_searcheable_candidate_to_candidate_copy,
+                mapping_of_searcheable_location_candidate_to_candidate_copy,
                 mapping_of_subscriber_to_directly_affected_locations,
                 area_name,
             )
@@ -149,7 +156,7 @@ impl Repository {
 
     async fn directly_affected_subscribers(
         &self,
-        area_name: String,
+        searcheable_area_names: &[SearcheableCandidate],
         searcheable_candidates: &[&str],
         time_frame: &TimeFrame<FutureOrCurrentNairobiTZDateTime>,
         mapping_of_searcheable_candidate_to_original_candidate: &HashMap<
@@ -165,10 +172,7 @@ impl Repository {
             from: NairobiTZDateTime::from(&time_frame.from),
             to: NairobiTZDateTime::from(&time_frame.to),
         };
-        let searcheable_area_names = area_name
-            .split(",")
-            .map(|s| SearcheableCandidate::from(s))
-            .collect_vec();
+
         let mut futures: FuturesUnordered<_> = searcheable_area_names
             .into_iter()
             .map(|area_name| {
@@ -178,7 +182,7 @@ impl Repository {
                         ",
                 )
                 .bind(searcheable_candidates)
-                .bind(area_name.as_ref().to_string())
+                .bind(area_name.to_string())
                 .fetch_all(pool)
             })
             .collect();
@@ -251,7 +255,8 @@ impl Repository {
 
     async fn potentially_affected_subscribers(
         &self,
-        searcheable_candidates: Vec<&str>,
+        searcheable_area_names: &[SearcheableCandidate],
+        searcheable_candidates: &[&str],
         time_frame: &TimeFrame<FutureOrCurrentNairobiTZDateTime>,
         mapping_of_searcheable_candidate_to_original_candidate: HashMap<SearcheableCandidate, &str>,
         mapping_of_subscriber_to_directly_affected_locations: HashMap<Uuid, Vec<Uuid>>,
@@ -270,15 +275,28 @@ impl Repository {
             to: NairobiTZDateTime::from(&time_frame.to),
         };
 
-        let nearby_locations = sqlx::query_as::<_, DbLocationSearchResults>(
-            "
-                SELECT * FROM location.search_locations_secondary_text($1::text[])
+        let mut futures: FuturesUnordered<_> = searcheable_area_names
+            .iter()
+            .map(|area_name| {
+                sqlx::query_as::<_, DbLocationSearchResults>(
+                    "
+                SELECT * FROM location.search_locations_secondary_text($1::text[], $2::text)
                 ",
-        )
-        .bind(searcheable_candidates)
-        .fetch_all(pool)
-        .await
-        .context("Failed to get nearby location search results from db")?;
+                )
+                .bind(&searcheable_candidates)
+                .bind(area_name.to_string())
+                .fetch_all(pool)
+            })
+            .collect();
+
+        let mut nearby_locations = vec![];
+
+        while let Some(result) = futures.next().await {
+            nearby_locations
+                .push(result.context("Failed to get nearby location search results from db")?);
+        }
+
+        let nearby_locations = nearby_locations.into_iter().flatten().collect_vec();
 
         let location_ids = nearby_locations
             .iter()
@@ -398,7 +416,7 @@ impl Repository {
 }
 
 fn include_area_name_to_searcheable_candidates<'a>(
-    searcheable_candidates: Vec<&str>,
+    searcheable_candidates: &[&str],
     mapping_of_searcheable_candidate_to_original_candidate: HashMap<SearcheableCandidate, &'a str>,
     area_name: &'a str,
 ) -> (HashMap<SearcheableCandidate, &'a str>, Vec<String>) {
