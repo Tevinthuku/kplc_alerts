@@ -7,9 +7,6 @@ use shared_kernel::http_client::HttpClient;
 use sqlx_postgres::cache::location_search::StatusCode;
 use url::Url;
 
-
-
-
 use crate::utils::get_token::get_token_count;
 use crate::{
     configuration::{REPO, SETTINGS_CONFIG},
@@ -60,6 +57,7 @@ pub fn generate_search_url(text: String) -> anyhow::Result<Url> {
         &[
             ("key", SETTINGS_CONFIG.location.api_key.expose_secret()),
             ("input", &text),
+            ("components", "country:ke"),
         ],
     )
     .context("Failed to parse url")
