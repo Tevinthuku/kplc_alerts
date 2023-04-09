@@ -99,6 +99,14 @@ pub struct Area<T> {
 
 pub struct ImportInput(pub HashMap<Url, Vec<Region<FutureOrCurrentNairobiTZDateTime>>>);
 
+impl ImportInput {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (&Url, &Vec<Region<FutureOrCurrentNairobiTZDateTime>>)> {
+        self.0.iter()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TimeFrame<T> {
     pub from: T,
