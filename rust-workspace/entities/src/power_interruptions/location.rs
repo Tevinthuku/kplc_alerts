@@ -90,9 +90,11 @@ impl TryFrom<NairobiTZDateTime> for FutureOrCurrentNairobiTZDateTime {
     }
 }
 
+string_key!(AreaName);
+
 #[derive(Debug, Clone)]
 pub struct Area<T> {
-    pub name: String,
+    pub name: AreaName,
     pub time_frame: TimeFrame<T>,
     pub locations: Vec<String>,
 }
@@ -124,5 +126,3 @@ pub struct AffectedLine<T = DateTime<Tz>> {
 }
 
 string_key!(LocationName);
-
-string_key!(AreaName);
