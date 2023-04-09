@@ -97,9 +97,12 @@ pub struct Area<T> {
     pub locations: Vec<String>,
 }
 
-pub struct ImportInput(pub HashMap<Url, Vec<Region<FutureOrCurrentNairobiTZDateTime>>>);
+pub struct ImportInput(HashMap<Url, Vec<Region<FutureOrCurrentNairobiTZDateTime>>>);
 
 impl ImportInput {
+    pub fn new(data: HashMap<Url, Vec<Region<FutureOrCurrentNairobiTZDateTime>>>) -> Self {
+        Self(data)
+    }
     pub fn iter(
         &self,
     ) -> impl Iterator<Item = (&Url, &Vec<Region<FutureOrCurrentNairobiTZDateTime>>)> {

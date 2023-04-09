@@ -325,7 +325,7 @@ mod tests {
             }],
         };
         let data = HashMap::from_iter([(url, vec![region])]);
-        ImportInput(data)
+        ImportInput::new(data)
     }
     #[tokio::test]
     async fn test_can_save_data_successfully() {

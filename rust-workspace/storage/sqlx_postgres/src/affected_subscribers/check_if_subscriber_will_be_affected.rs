@@ -406,7 +406,7 @@ mod tests {
 
     fn generate_import_input() -> ImportInput {
         let url = Url::parse("https://example.net").unwrap();
-        ImportInput(HashMap::from([(url, vec![generate_region()])]))
+        ImportInput::new(HashMap::from([(url, vec![generate_region()])]))
     }
 
     #[tokio::test]
