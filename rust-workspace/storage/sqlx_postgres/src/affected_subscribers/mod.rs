@@ -77,7 +77,7 @@ impl AsRef<str> for SearcheableCandidate {
 
 impl From<&str> for SearcheableCandidate {
     fn from(value: &str) -> Self {
-        let value = value.trim().replace(' ', " & ");
+        let value = value.trim().replace(' ', " <-> ");
         SearcheableCandidate(value)
     }
 }
