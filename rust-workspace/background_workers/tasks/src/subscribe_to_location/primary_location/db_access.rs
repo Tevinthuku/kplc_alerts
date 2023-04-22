@@ -1,7 +1,6 @@
-use crate::subscribe_to_location::db::affected_subscriber::{
-    BareAffectedLine, DbLocationSearchResults, NotificationGenerator, SearcheableCandidate,
+use crate::subscribe_to_location::db::{
+    BareAffectedLine, DbLocationSearchResults, NotificationGenerator, SearcheableCandidate, DB,
 };
-use crate::subscribe_to_location::db::DB;
 use anyhow::anyhow;
 use anyhow::Context;
 use celery::{prelude::TaskError, task::TaskResult};
