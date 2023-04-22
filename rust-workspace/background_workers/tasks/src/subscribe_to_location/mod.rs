@@ -31,18 +31,7 @@ use crate::{
     utils::callbacks::failure_callback,
 };
 
-use self::db::DataAccess;
-
-pub async fn subscribe_to_primary_location(
-    location_id: LocationId,
-    subscriber: SubscriberId,
-) -> TaskResult<Uuid> {
-    let db = DataAccess::new().await;
-
-    db.subscribe_to_location(subscriber, location_id)
-        .await
-        .map_err(|err| TaskError::UnexpectedError(err.to_string()))
-}
+use self::db::DB;
 
 #[celery::task(max_retries = 200, bind=true, retry_for_unexpected = false, on_failure = failure_callback)]
 pub async fn get_and_subscribe_to_nearby_location(
@@ -53,7 +42,8 @@ pub async fn get_and_subscribe_to_nearby_location(
     subscriber_directly_affected: bool,
     task_id: TaskId,
 ) -> TaskResult<()> {
-    let id = try_get_location_from_cache(&external_id).await?;
+    let db = DB::new().await;
+    let id = db.find_location_id(external_id.clone()).await?;
     let location_id = match id {
         None => {
             let token_count = get_location_token().await?;
@@ -116,7 +106,8 @@ pub async fn fetch_and_subscribe_to_locations(
     set_progress_status(task_id.as_ref(), total_count_locations, |_| Ok(()))
         .await
         .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
-    let id = try_get_location_from_cache(&primary_location).await?;
+    let db = DB::new().await;
+    let id = db.find_location_id(primary_location.clone()).await?;
     let location_id = match id {
         None => {
             let token_count = get_location_token().await?;
@@ -130,14 +121,13 @@ pub async fn fetch_and_subscribe_to_locations(
         Some(id) => id,
     };
 
-    let id = subscribe_to_primary_location(location_id, subscriber).await?;
+    let id = db
+        .subscribe_to_primary_location(subscriber, location_id)
+        .await?;
 
-    let direct_notification = REPO
-        .get()
-        .await
+    let direct_notification = db
         .subscriber_directly_affected(subscriber, location_id)
-        .await
-        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
+        .await?;
 
     decr_count_by_one(task_id.clone()).await?;
 
@@ -213,15 +203,6 @@ async fn get_location_from_api(external_id: ExternalLocationId) -> TaskResult<Lo
     let location = get_place_details(url).await?;
 
     save_location_returning_id(location.clone()).await
-}
-
-async fn try_get_location_from_cache(
-    external_id: &ExternalLocationId,
-) -> TaskResult<Option<LocationId>> {
-    let repo = REPO.get().await;
-    repo.find_location_id(external_id.clone())
-        .await
-        .map_err(|err| TaskError::UnexpectedError(err.to_string()))
 }
 
 async fn get_place_details(url: Url) -> TaskResult<LocationInput> {

@@ -1,5 +1,8 @@
+mod affected_subscriber;
+
 use anyhow::Context;
-use entities::locations::LocationId;
+use celery::{prelude::TaskError, task::TaskResult};
+use entities::locations::{ExternalLocationId, LocationId};
 use entities::subscriptions::SubscriberId;
 use sqlx::PgPool;
 use sqlx_postgres::repository::Repository;
@@ -7,23 +10,23 @@ use uuid::Uuid;
 
 use crate::configuration::REPO;
 
-pub struct DataAccess<'a>(&'a Repository);
+pub struct DB<'a>(&'a Repository);
 
-impl<'a> DataAccess<'a> {
-    pub async fn new() -> DataAccess<'a> {
+impl<'a> DB<'a> {
+    pub async fn new() -> DB<'a> {
         let repo = REPO.get().await;
-        DataAccess(repo)
+        DB(repo)
     }
 
     fn pool(&self) -> &PgPool {
         self.0.pool()
     }
 
-    pub async fn subscribe_to_location(
+    pub async fn subscribe_to_primary_location(
         &self,
         subscriber: SubscriberId,
         location_id: LocationId,
-    ) -> anyhow::Result<Uuid> {
+    ) -> TaskResult<Uuid> {
         let subscriber = subscriber.inner();
         let location_id = location_id.inner();
         let _ = sqlx::query!(
@@ -36,7 +39,7 @@ impl<'a> DataAccess<'a> {
         )
         .execute(self.pool())
         .await
-        .context("Failed to subscribe to location")?;
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
 
         let record = sqlx::query!(
             r#"
@@ -44,8 +47,26 @@ impl<'a> DataAccess<'a> {
             "#,
              subscriber,
               location_id
-        ).fetch_one(self.pool()).await.context("Failed to get location")?;
+        ).fetch_one(self.pool()).await.map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
 
         Ok(record.id)
+    }
+
+    pub async fn find_location_id(
+        &self,
+        location: ExternalLocationId,
+    ) -> TaskResult<Option<LocationId>> {
+        let pool = self.pool();
+        let db_results = sqlx::query!(
+            r#"
+            SELECT id
+            FROM location.locations WHERE external_id = $1
+            "#,
+            location.inner()
+        )
+        .fetch_optional(pool)
+        .await
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
+        Ok(db_results.map(|record| record.id.into()))
     }
 }

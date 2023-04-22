@@ -1,5 +1,25 @@
 {
   "db": "PostgreSQL",
+  "6a1d966505f520b02ce5eff3b14e04506c674b1f76b639ed70ff2c5a83cb093d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            SELECT id\n            FROM location.locations WHERE external_id = $1\n            "
+  },
   "c9196fb2338d14fe601d614f6f403966c5ab9b1d84a667d93d97bae69edfd08f": {
     "describe": {
       "columns": [
