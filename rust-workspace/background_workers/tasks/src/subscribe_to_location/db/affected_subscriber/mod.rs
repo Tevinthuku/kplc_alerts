@@ -1,4 +1,3 @@
-mod directly_affected;
 mod potentially_affected;
 
 use std::{collections::HashMap, iter::once_with};
@@ -33,7 +32,7 @@ pub struct DbLocationSearchResults {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
-struct SearcheableCandidate(String);
+pub(crate) struct SearcheableCandidate(String);
 
 impl ToString for SearcheableCandidate {
     fn to_string(&self) -> String {
@@ -55,7 +54,7 @@ impl From<&str> for SearcheableCandidate {
 }
 
 impl BareAffectedLine {
-    async fn lines_affected_in_the_future(
+    pub(crate) async fn lines_affected_in_the_future(
         db: &DB<'_>,
     ) -> anyhow::Result<HashMap<AreaName, Vec<Self>>> {
         #[derive(sqlx::FromRow, Debug)]
@@ -116,13 +115,16 @@ impl SearcheableCandidate {
     }
 }
 
-struct NotificationGenerator<'a> {
-    subscriber: AffectedSubscriber,
-    affected_lines: &'a [BareAffectedLine],
+pub(crate) struct NotificationGenerator<'a> {
+    pub(crate) subscriber: AffectedSubscriber,
+    pub(crate) affected_lines: &'a [BareAffectedLine],
 }
 
 impl<'a> NotificationGenerator<'a> {
-    fn generate(&self, location: DbLocationSearchResults) -> anyhow::Result<Notification> {
+    pub(crate) fn generate(
+        &self,
+        location: DbLocationSearchResults,
+    ) -> anyhow::Result<Notification> {
         let BareAffectedLinesMapping {
             mapping_of_line_to_time_frame,
             mapping_of_searcheble_candidate_to_original_line_candidate,

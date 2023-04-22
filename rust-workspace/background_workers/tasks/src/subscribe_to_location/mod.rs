@@ -1,4 +1,5 @@
 pub mod db;
+mod primary_location;
 
 use anyhow::Context;
 use celery::export::async_trait;
