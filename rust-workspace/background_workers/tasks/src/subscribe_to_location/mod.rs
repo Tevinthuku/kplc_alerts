@@ -1,3 +1,5 @@
+pub mod db;
+
 use anyhow::Context;
 use celery::export::async_trait;
 use celery::prelude::*;
@@ -29,14 +31,17 @@ use crate::{
     utils::callbacks::failure_callback,
 };
 
+use self::db::DataAccess;
+
 pub async fn subscribe_to_primary_location(
     location_id: LocationId,
     subscriber: SubscriberId,
 ) -> TaskResult<Uuid> {
-    let repo = REPO.get().await;
-    repo.subscribe_to_location(subscriber, location_id)
+    let db = DataAccess::new().await;
+
+    db.subscribe_to_location(subscriber, location_id)
         .await
-        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))
 }
 
 #[celery::task(max_retries = 200, bind=true, retry_for_unexpected = false, on_failure = failure_callback)]
@@ -48,7 +53,6 @@ pub async fn get_and_subscribe_to_nearby_location(
     subscriber_directly_affected: bool,
     task_id: TaskId,
 ) -> TaskResult<()> {
-    let repo = REPO.get().await;
     let id = try_get_location_from_cache(&external_id).await?;
     let location_id = match id {
         None => {
@@ -62,9 +66,11 @@ pub async fn get_and_subscribe_to_nearby_location(
         }
         Some(id) => id,
     };
+    let repo = REPO.get().await;
+
     repo.subscribe_to_adjuscent_location(subscriber_primary_location_id, location_id)
         .await
-        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))?;
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
 
     if subscriber_directly_affected {
         return Ok(());
@@ -72,7 +78,7 @@ pub async fn get_and_subscribe_to_nearby_location(
     let notification = repo
         .subscriber_potentially_affected(subscriber_id, location_id)
         .await
-        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))?;
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
 
     decr_count_by_one(task_id).await?;
 
@@ -176,11 +182,11 @@ async fn save_location_returning_id(location: LocationInput) -> TaskResult<Locat
     let _ = repo
         .insert_location(location)
         .await
-        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))?;
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
     let location_id = repo
         .find_location_id(external_id)
         .await
-        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))?;
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
     location_id
         .ok_or("Location not found")
         .map_err(|err| TaskError::UnexpectedError(err.to_string()))
@@ -215,7 +221,7 @@ async fn try_get_location_from_cache(
     let repo = REPO.get().await;
     repo.find_location_id(external_id.clone())
         .await
-        .map_err(|err| TaskError::UnexpectedError(format!("{err}")))
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))
 }
 
 async fn get_place_details(url: Url) -> TaskResult<LocationInput> {
