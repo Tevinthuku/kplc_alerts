@@ -3,7 +3,7 @@ mod check_if_subscriber_will_be_affected;
 use crate::repository::Repository;
 use anyhow::Context;
 use async_trait::async_trait;
-use entities::locations::LocationId;
+use entities::{locations::LocationId, power_interruptions::location::AreaName};
 use entities::power_interruptions::location::{Area, NairobiTZDateTime, TimeFrame};
 use entities::subscriptions::AffectedSubscriber;
 use entities::{
@@ -72,6 +72,15 @@ impl ToString for SearcheableCandidate {
 impl AsRef<str> for SearcheableCandidate {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+impl SearcheableCandidate {
+    pub fn from_area_name(area: &AreaName) -> Vec<Self> {
+        area.as_ref()
+            .split(',')
+            .map(SearcheableCandidate::from)
+            .collect_vec()
     }
 }
 
@@ -483,122 +492,5 @@ mod tests {
         .unwrap();
 
         repo.find_by_external_id(external_id).await.unwrap()
-    }
-
-    #[tokio::test]
-    async fn test_searching_directly_affected_subscriber_works() {
-        let repository = Repository::new_test_repo().await;
-        let subscriber_id = authenticate(&repository).await;
-        let contents = include_str!("mock_data/garden_city_details_response.json");
-        let api_response: Value = serde_json::from_str(contents).unwrap();
-        let location_id = repository
-            .insert_location(LocationInput {
-                name: "Garden City Mall".to_string(),
-                external_id: ExternalLocationId::from("ChIJGdueTt0VLxgRk19ir6oE8I0".to_string()),
-                address: "Thika Rd, Nairobi, Kenya".to_string(),
-                api_response,
-            })
-            .await
-            .unwrap();
-
-        repository
-            .subscribe_to_location(subscriber_id, location_id)
-            .await
-            .unwrap();
-
-        let results = repository
-            .get_affected_subscribers(&[generate_region()])
-            .await
-            .unwrap();
-        println!("{results:?}");
-        assert!(!results.is_empty());
-        let key = AffectedSubscriber::DirectlyAffected(subscriber_id);
-        assert!(results.contains_key(&key));
-        let value = results.get(&key).unwrap().first().unwrap();
-        assert_eq!(&value.line, "Garden City Mall")
-    }
-
-    #[tokio::test]
-    async fn test_locations_with_generic_names_are_first_matched_to_area() {
-        let repository = Repository::new_test_repo().await;
-        let subscriber_id = authenticate(&repository).await;
-        let contents = include_str!("mock_data/generic_name/citam_nairobi_pentecostal.json");
-        let api_response: Value = serde_json::from_str(contents).unwrap();
-
-        let location_id = repository
-            .insert_location(LocationInput {
-                name: "Nairobi Pentecostal Church".to_string(),
-                external_id: ExternalLocationId::from("ChIJhVbiHlwVLxgRUzt5QN81vPA".to_string()),
-                address: "CITAM BURU BURU PREMISES,NZIU, Starehe, Kenya".to_string(),
-                api_response,
-            })
-            .await
-            .unwrap();
-        repository
-            .subscribe_to_location(subscriber_id, location_id)
-            .await
-            .unwrap();
-
-        let contents = include_str!("mock_data/generic_name/fishermens_pentecostal.json");
-        let api_response: Value = serde_json::from_str(contents).unwrap();
-
-        let location_id = repository
-            .insert_location(LocationInput {
-                name: "Fisher's of men Pentecostal church".to_string(),
-                external_id: ExternalLocationId::from("ChIJwxGb7pVrLxgRdxwwMVASs-c".to_string()),
-                address: "PXV6+JVG, Kangundo Rd, Nairobi, Kenya".to_string(),
-                api_response,
-            })
-            .await
-            .unwrap();
-        repository
-            .subscribe_to_location(subscriber_id, location_id)
-            .await
-            .unwrap();
-
-        let contents = include_str!("mock_data/generic_name/victory_pentecostal_church.json");
-        let api_response: Value = serde_json::from_str(contents).unwrap();
-
-        let location_id = repository
-            .insert_location(LocationInput {
-                name: "Victory Pentecostal Church (Jabez Experience Centre)".to_string(),
-                external_id: ExternalLocationId::from("ChIJSx8C4LERLxgR-ml5tyOEkPw".to_string()),
-                address: "MQRQ+GVF, Nairobi, Kenya".to_string(),
-                api_response,
-            })
-            .await
-            .unwrap();
-        repository
-            .subscribe_to_location(subscriber_id, location_id)
-            .await
-            .unwrap();
-
-        let region = Region {
-            region: "Nairobi".to_string(),
-            counties: vec![County {
-                name: "Nairobi".to_string(),
-                areas: vec![Area {
-                    name: "Kibera".to_string().into(),
-                    time_frame: TimeFrame {
-                        from: NairobiTZDateTime::today().try_into().unwrap(),
-                        to: NairobiTZDateTime::today().try_into().unwrap(),
-                    },
-                    locations: vec!["Pentecostal church".to_string()],
-                }],
-            }],
-        };
-
-        let results = repository
-            .get_affected_subscribers(&[region])
-            .await
-            .unwrap();
-
-        let empty_vec = vec![];
-
-        let affected_lines = results
-            .get(&AffectedSubscriber::DirectlyAffected(subscriber_id))
-            .unwrap_or(&empty_vec);
-
-        assert_eq!(affected_lines.len(), 1)
     }
 }

@@ -109,7 +109,7 @@ async fn get_nearby_locations_from_api(url: Url) -> TaskResult<serde_json::Value
 }
 
 async fn get_and_save_nearby_locations(
-    db: &DB<'_>,
+    db: &DB,
     url: Url,
     primary_location: LocationId,
 ) -> TaskResult<NearbyLocationId> {

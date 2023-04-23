@@ -12,12 +12,75 @@ use entities::power_interruptions::location::{AffectedLine, NairobiTZDateTime, T
 use entities::subscriptions::{AffectedSubscriber, SubscriberId};
 use entities::{locations::LocationId, power_interruptions::location::AreaName};
 use itertools::Itertools;
+use lazy_static::lazy_static;
+use regex::{Captures, Regex, RegexBuilder};
 use serde::Deserialize;
 use sqlx::types::chrono::DateTime;
+
 use sqlx::types::Json;
 use sqlx::PgPool;
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use url::Url;
 use uuid::Uuid;
+
+lazy_static! {
+    static ref ACRONYM_MAP: HashMap<String, &'static str> = HashMap::from([
+        ("pri".to_string(), "Primary"),
+        ("rd".to_string(), "Road"),
+        ("est".to_string(), "Estate"),
+        ("sch".to_string(), "School"),
+        ("sec".to_string(), "Secondary"),
+        ("stn".to_string(), "Station"),
+        ("apts".to_string(), "Apartments"),
+        ("hqtrs".to_string(), "Headquaters"),
+        ("mkt".to_string(), "Market"),
+        ("fact".to_string(), "Factory"),
+        ("t/fact".to_string(), "Tea Factory"),
+        ("c/fact".to_string(), "Coffee Factory")
+    ]);
+    static ref REGEX_STR: String = {
+        let keys = ACRONYM_MAP.keys().join("|");
+        format!(r"\b(?:{})\b", keys)
+    };
+    static ref ACRONYMS_MATCHER: Regex = RegexBuilder::new(&REGEX_STR)
+        .case_insensitive(true)
+        .build()
+        .expect("ACRONYMS_MATCHER to have been built successfully");
+}
+
+#[derive(Debug)]
+pub struct NonAcronymString(String);
+
+impl From<String> for NonAcronymString {
+    fn from(value: String) -> Self {
+        let result = ACRONYMS_MATCHER
+            .replace_all(&value, |cap: &Captures| {
+                let cap_as_lower_case = cap[0].to_lowercase();
+                ACRONYM_MAP
+                    .get(&cap_as_lower_case)
+                    .cloned()
+                    .unwrap_or_default()
+                    .to_string()
+            })
+            .trim()
+            .to_string();
+
+        NonAcronymString(result)
+    }
+}
+
+impl Display for NonAcronymString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl AsRef<str> for NonAcronymString {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
 
 pub struct LocationWithCoordinates {
     pub location_id: LocationId,
@@ -25,7 +88,48 @@ pub struct LocationWithCoordinates {
     pub longitude: f64,
 }
 
-impl DB<'_> {
+#[derive(Clone)]
+pub struct LocationInput {
+    pub name: String,
+    pub external_id: ExternalLocationId,
+    pub address: String,
+    pub api_response: serde_json::Value,
+}
+
+impl DB {
+    pub async fn insert_location(&self, location: LocationInput) -> TaskResult<LocationId> {
+        let pool = self.pool();
+        let external_id = location.external_id.as_ref();
+        let address = location.address.clone();
+        let sanitized_address = NonAcronymString::from(location.address);
+
+        sqlx::query!(
+            "
+            INSERT INTO location.locations (name, external_id, address, sanitized_address, external_api_response) 
+            VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING
+            ",
+            location.name,
+            external_id,
+            address,
+            sanitized_address.as_ref(),
+            Json(location.api_response) as _
+        )
+        .execute(pool)
+        .await
+        .with_unexpected_err(|| "Failed to insert location")?;
+
+        let record = sqlx::query!(
+            r#"
+            SELECT id FROM location.locations WHERE external_id = $1
+            "#,
+            external_id
+        )
+        .fetch_one(pool)
+        .await
+        .with_unexpected_err(|| "Failed to get inserted location")?;
+
+        Ok(record.id.into())
+    }
     pub async fn subscribe_to_primary_location(
         &self,
         subscriber: SubscriberId,
@@ -114,7 +218,6 @@ impl DB<'_> {
         let results = BareAffectedLine::lines_affected_in_the_future(self)
             .await
             .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
-
         for (area_name, affected_lines) in results.iter() {
             let notification = self
                 .directly_affected_subscriber_notification(
@@ -205,5 +308,140 @@ impl DB<'_> {
             }
         }
         Ok(primary_location)
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use std::collections::HashMap;
+
+    use crate::subscribe_to_location::db::DB;
+    use crate::subscribe_to_location::primary_location::db_access::LocationInput;
+    use chrono::{Days, Utc};
+    use entities::locations::ExternalLocationId;
+    use entities::subscriptions::{AffectedSubscriber, SubscriberId};
+    use serde::Deserialize;
+    use serde_json::Value;
+    use sqlx_postgres::fixtures::SUBSCRIBER_EXTERNAL_ID;
+    use url::Url;
+    use use_cases::import_affected_areas::SaveBlackoutAffectedAreasRepo;
+    use uuid::Uuid;
+
+    impl DB {
+        pub async fn find_subscriber_id_created_in_fixtures(&self) -> SubscriberId {
+            let external_id = SUBSCRIBER_EXTERNAL_ID.as_ref();
+            #[derive(sqlx::FromRow, Debug)]
+            struct Subscriber {
+                id: Uuid,
+            }
+            let result = sqlx::query_as::<_, Subscriber>(&format!(
+                "SELECT id FROM public.subscriber WHERE external_id = '{}'",
+                external_id
+            ))
+            .fetch_one(self.pool())
+            .await
+            .unwrap();
+
+            result.id.into()
+        }
+    }
+
+    #[tokio::test]
+    async fn test_that_subscriber_is_marked_as_directly_affected() {
+        let db = DB::new_test_db().await;
+        let subscriber_id = db.find_subscriber_id_created_in_fixtures().await;
+
+        let contents = include_str!("../db/mock_data/garden_city_details_response.json");
+        let api_response: Value = serde_json::from_str(contents).unwrap();
+        let location_id = db
+            .insert_location(LocationInput {
+                name: "Garden City Mall".to_string(),
+                external_id: ExternalLocationId::from("ChIJGdueTt0VLxgRk19ir6oE8I0".to_string()),
+                address: "Thika Rd, Nairobi, Kenya".to_string(),
+                api_response,
+            })
+            .await
+            .unwrap();
+        db.subscribe_to_primary_location(subscriber_id, location_id)
+            .await
+            .unwrap();
+        let notification = db
+            .subscriber_directly_affected(subscriber_id, location_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(
+            notification.subscriber,
+            AffectedSubscriber::DirectlyAffected(subscriber_id)
+        );
+        let line = &notification.lines.first().unwrap().line;
+        assert_eq!(line, "Garden City Mall");
+    }
+
+    #[tokio::test]
+    async fn test_locations_with_generic_names_are_first_matched_to_area() {
+        let db = DB::new_test_db().await;
+        let subscriber_id = db.find_subscriber_id_created_in_fixtures().await;
+
+        let contents = include_str!("../db/mock_data/generic_name/citam_nairobi_pentecostal.json");
+        let api_response: Value = serde_json::from_str(contents).unwrap();
+
+        let location_id = db
+            .insert_location(LocationInput {
+                name: "Nairobi Pentecostal Church".to_string(),
+                external_id: ExternalLocationId::from("ChIJhVbiHlwVLxgRUzt5QN81vPA".to_string()),
+                address: "CITAM BURU BURU PREMISES,NZIU, Starehe, Kenya".to_string(),
+                api_response,
+            })
+            .await
+            .unwrap();
+
+        db.subscribe_to_primary_location(subscriber_id, location_id)
+            .await
+            .unwrap();
+
+        let contents = include_str!("../db/mock_data/generic_name/fishermens_pentecostal.json");
+        let api_response: Value = serde_json::from_str(contents).unwrap();
+
+        let location_id = db
+            .insert_location(LocationInput {
+                name: "Fisher's of men Pentecostal church".to_string(),
+                external_id: ExternalLocationId::from("ChIJwxGb7pVrLxgRdxwwMVASs-c".to_string()),
+                address: "PXV6+JVG, Kangundo Rd, Nairobi, Kenya".to_string(),
+                api_response,
+            })
+            .await
+            .unwrap();
+        db.subscribe_to_primary_location(subscriber_id, location_id)
+            .await
+            .unwrap();
+
+        let contents = include_str!("../db/mock_data/generic_name/victory_pentecostal_church.json");
+        let api_response: Value = serde_json::from_str(contents).unwrap();
+
+        let location_id = db
+            .insert_location(LocationInput {
+                name: "Victory Pentecostal Church (Jabez Experience Centre)".to_string(),
+                external_id: ExternalLocationId::from("ChIJSx8C4LERLxgR-ml5tyOEkPw".to_string()),
+                address: "MQRQ+GVF, Nairobi, Kenya".to_string(),
+                api_response,
+            })
+            .await
+            .unwrap();
+        db.subscribe_to_primary_location(subscriber_id, location_id)
+            .await
+            .unwrap();
+
+        let notification = db
+            .subscriber_directly_affected(subscriber_id, location_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(
+            notification.subscriber,
+            AffectedSubscriber::DirectlyAffected(subscriber_id)
+        );
     }
 }

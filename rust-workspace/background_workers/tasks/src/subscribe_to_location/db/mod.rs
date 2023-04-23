@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context};
 use entities::locations::LocationId;
-use entities::subscriptions::AffectedSubscriber;
+use entities::subscriptions::{AffectedSubscriber, SubscriberId};
 use sqlx::PgPool;
 use sqlx_postgres::repository::Repository;
 use std::collections::HashMap;
@@ -13,20 +13,29 @@ use entities::power_interruptions::location::{
 };
 use itertools::Itertools;
 use sqlx::types::chrono::DateTime;
+use sqlx_postgres::fixtures::SUBSCRIBER_EXTERNAL_ID;
 use url::Url;
 
 use crate::configuration::REPO;
 
-pub struct DB<'a>(&'a Repository);
+pub struct DB(Repository);
 
-impl<'a> DB<'a> {
-    pub async fn new() -> DB<'a> {
-        let repo = REPO.get().await;
+impl DB {
+    pub async fn new() -> DB {
+        let repo = REPO.get().await.clone();
         DB(repo)
     }
 
     pub fn pool(&self) -> &PgPool {
         self.0.pool()
+    }
+}
+
+#[cfg(test)]
+impl DB {
+    pub async fn new_test_db() -> DB {
+        let repo = Repository::new_test_repo().await;
+        DB(repo)
     }
 }
 
@@ -66,9 +75,18 @@ impl From<&str> for SearcheableCandidate {
     }
 }
 
+impl SearcheableCandidate {
+    pub fn from_area_name(area: &AreaName) -> Vec<Self> {
+        area.as_ref()
+            .split(',')
+            .map(SearcheableCandidate::from)
+            .collect_vec()
+    }
+}
+
 impl BareAffectedLine {
     pub(crate) async fn lines_affected_in_the_future(
-        db: &DB<'_>,
+        db: &DB,
     ) -> anyhow::Result<HashMap<AreaName, Vec<Self>>> {
         #[derive(sqlx::FromRow, Debug)]
         struct DbAreaLine {
@@ -116,15 +134,6 @@ impl BareAffectedLine {
             .context("Failed to map urls")?;
 
         Ok(results.into_iter().into_group_map())
-    }
-}
-
-impl SearcheableCandidate {
-    pub fn from_area_name(area: &AreaName) -> Vec<Self> {
-        area.as_ref()
-            .split(',')
-            .map(SearcheableCandidate::from)
-            .collect_vec()
     }
 }
 

@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 uuid_key!(NearbyLocationId);
 
-impl DB<'_> {
+impl DB {
     pub(super) async fn is_nearby_locations_already_fetched(
         &self,
         source_url: Url,

@@ -10,7 +10,6 @@ use entities::locations::ExternalLocationId;
 use entities::subscriptions::SubscriberId;
 use secrecy::ExposeSecret;
 use shared_kernel::http_client::HttpClient;
-use sqlx_postgres::locations::insert_location::LocationInput;
 use url::Url;
 
 use crate::{
@@ -26,7 +25,9 @@ use use_cases::subscriber_locations::subscribe_to_location::TaskId;
 use uuid::Uuid;
 
 use crate::subscribe_to_location::nearby_locations::get_nearby_locations;
-use crate::subscribe_to_location::primary_location::db_access::LocationWithCoordinates;
+use crate::subscribe_to_location::primary_location::db_access::{
+    LocationInput, LocationWithCoordinates,
+};
 use crate::utils::progress_tracking::set_progress_status;
 use crate::{
     configuration::{REPO, SETTINGS_CONFIG},
@@ -121,14 +122,8 @@ async fn save_location_returning_id_and_coordinates(
     let repo = REPO.get().await;
     let db = DB::new().await;
     let external_id = location.external_id.clone();
-    let _ = repo
-        .insert_location(location)
-        .await
-        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
-    let location_id = db
-        .find_location_id_and_coordinates(external_id)
-        .await
-        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
+    let _ = db.insert_location(location).await?;
+    let location_id = db.find_location_id_and_coordinates(external_id).await?;
     location_id
         .ok_or("Location not found")
         .map_err(|err| TaskError::UnexpectedError(err.to_string()))
