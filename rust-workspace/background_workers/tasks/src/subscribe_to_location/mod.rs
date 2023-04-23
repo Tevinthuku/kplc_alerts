@@ -23,12 +23,11 @@ use serde::Deserialize;
 use sqlx_postgres::cache::location_search::StatusCode;
 use use_cases::subscriber_locations::subscribe_to_location::TaskId;
 
-
 use crate::subscribe_to_location::nearby_locations::get_nearby_locations;
 use crate::subscribe_to_location::primary_location::db_access::{
     LocationInput, LocationWithCoordinates,
 };
-use crate::utils::progress_tracking::set_progress_status;
+use crate::utils::progress_tracking::{set_progress_status, TaskStatus};
 use crate::{
     configuration::{REPO, SETTINGS_CONFIG},
     utils::callbacks::failure_callback,
@@ -50,14 +49,16 @@ async fn decr_count_by_one(task_id: TaskId) -> TaskResult<()> {
 pub async fn fetch_and_subscribe_to_locations(
     task: &Self,
     primary_location: ExternalLocationId,
-    nearby_locations: Vec<ExternalLocationId>,
     subscriber: SubscriberId,
     task_id: TaskId,
 ) -> TaskResult<()> {
-    let total_count_locations = nearby_locations.len() + 1;
-    set_progress_status(task_id.as_ref(), total_count_locations, |_| Ok(()))
-        .await
-        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
+    set_progress_status(
+        task_id.as_ref(),
+        TaskStatus::Pending.to_string(),
+        |_| Ok(()),
+    )
+    .await
+    .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
     let db = DB::new().await;
     let location_with_coordinates = db
         .find_location_id_and_coordinates(primary_location.clone())
