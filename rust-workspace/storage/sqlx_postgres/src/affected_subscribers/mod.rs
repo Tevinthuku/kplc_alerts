@@ -1,11 +1,9 @@
-mod check_if_subscriber_will_be_affected;
-
 use crate::repository::Repository;
 use anyhow::Context;
 use async_trait::async_trait;
-use entities::{locations::LocationId, power_interruptions::location::AreaName};
 use entities::power_interruptions::location::{Area, NairobiTZDateTime, TimeFrame};
 use entities::subscriptions::AffectedSubscriber;
+use entities::{locations::LocationId, power_interruptions::location::AreaName};
 use entities::{
     power_interruptions::location::{AffectedLine, FutureOrCurrentNairobiTZDateTime, Region},
     subscriptions::SubscriberId,
@@ -425,72 +423,4 @@ fn filter_out_directly_affected_subscriber_locations_from_potentially_affected(
             }
         })
         .collect::<HashMap<_, _>>()
-}
-
-#[cfg(test)]
-mod tests {
-
-    use crate::locations::insert_location::LocationInput;
-    use entities::{
-        locations::ExternalLocationId,
-        power_interruptions::location::{Area, County, NairobiTZDateTime, Region, TimeFrame},
-        subscriptions::{
-            details::{SubscriberDetails, SubscriberExternalId},
-            AffectedSubscriber, SubscriberId,
-        },
-    };
-    use serde_json::Value;
-    use use_cases::{
-        authentication::SubscriberAuthenticationRepo,
-        notifications::notify_subscribers::SubscriberRepo,
-    };
-
-    use crate::repository::Repository;
-
-    fn generate_region() -> Region {
-        Region {
-            region: "Nairobi".to_string(),
-            counties: vec![County {
-                name: "Nairobi".to_string(),
-                areas: vec![
-                    Area {
-                        name: "Garden City".to_string().into(),
-                        time_frame: TimeFrame {
-                            from: NairobiTZDateTime::today().try_into().unwrap(),
-                            to: NairobiTZDateTime::today().try_into().unwrap(),
-                        },
-                        locations: vec![
-                            "Will Mary Estate".to_string(),
-                            "Garden City Mall".to_string(),
-                        ],
-                    },
-                    Area {
-                        name: "Lumumba".to_string().into(),
-                        time_frame: TimeFrame {
-                            from: NairobiTZDateTime::today().try_into().unwrap(),
-                            to: NairobiTZDateTime::today().try_into().unwrap(),
-                        },
-                        locations: vec![
-                            "Lumumba dr".to_string(),
-                            "Pan Africa Christian University".to_string(),
-                        ],
-                    },
-                ],
-            }],
-        }
-    }
-
-    pub async fn authenticate(repo: &Repository) -> SubscriberId {
-        let external_id: SubscriberExternalId =
-            "ChIJGdueTt0VLxgRk19ir6oE8I0".to_owned().try_into().unwrap();
-        repo.create_or_update_subscriber(SubscriberDetails {
-            name: "Tev".to_owned().try_into().unwrap(),
-            email: "tevinthuku@gmail.com".to_owned().try_into().unwrap(),
-            external_id: external_id.clone(),
-        })
-        .await
-        .unwrap();
-
-        repo.find_by_external_id(external_id).await.unwrap()
-    }
 }

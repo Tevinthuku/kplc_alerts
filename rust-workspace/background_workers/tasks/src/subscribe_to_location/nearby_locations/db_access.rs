@@ -42,11 +42,23 @@ impl DB {
         let results = BareAffectedLine::lines_affected_in_the_future(self)
             .await
             .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
-        let affected_lines = results.into_values().flatten().collect_vec();
 
-        let searcheable_candidates = affected_lines
+        let mut bare_affected_lines = vec![];
+        for (area_name, affected_lines) in results.into_iter() {
+            if let Some(line) = affected_lines.first() {
+                bare_affected_lines.push(BareAffectedLine {
+                    line: area_name.to_string(),
+                    url: line.url.clone(),
+                    time_frame: line.time_frame.clone(),
+                })
+            }
+            bare_affected_lines.extend(affected_lines.into_iter());
+        }
+
+        let searcheable_candidates = bare_affected_lines
             .iter()
-            .map(|line| SearcheableCandidate::from(line.line.as_ref()).to_string())
+            .map(|line| SearcheableCandidate::from(line.line.as_ref()))
+            .map(|candidate| candidate.to_string())
             .collect_vec();
 
         #[derive(sqlx::FromRow, Debug)]
@@ -68,7 +80,7 @@ impl DB {
         if let Some(nearby_location) = nearby_location {
             let notification = NotificationGenerator {
                 subscriber: AffectedSubscriber::PotentiallyAffected(subscriber),
-                affected_lines: &affected_lines,
+                affected_lines: &bare_affected_lines,
             }
             .generate(
                 nearby_location.candidate,
@@ -111,5 +123,62 @@ impl DB {
         .with_unexpected_err(|| "Failed to fetch the nearby_location by id")?;
 
         Ok(record.id.into())
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use std::collections::HashMap;
+
+    use crate::subscribe_to_location::db::DB;
+    use crate::subscribe_to_location::primary_location::db_access::LocationInput;
+    use chrono::{Days, Utc};
+    use entities::locations::ExternalLocationId;
+    use entities::subscriptions::{AffectedSubscriber, SubscriberId};
+    use serde::Deserialize;
+    use serde_json::Value;
+    use sqlx_postgres::fixtures::SUBSCRIBER_EXTERNAL_ID;
+    use url::Url;
+    use use_cases::import_affected_areas::SaveBlackoutAffectedAreasRepo;
+    use uuid::Uuid;
+
+    #[tokio::test]
+    async fn test_that_subscriber_is_marked_as_potentially_affected() {
+        let db = DB::new_test_db().await;
+        let subscriber_id = db.find_subscriber_id_created_in_fixtures().await;
+
+        let contents = include_str!("mock_data/mi_vida_homes.json");
+        let api_response: Value = serde_json::from_str(contents).unwrap();
+        let location_id = db
+            .insert_location(LocationInput {
+                name: "Mi Vida Homes".to_string(),
+                external_id: ExternalLocationId::from("ChIJhVbiHlwVLxgRUzt5QN81vPA".to_string()),
+                address: "Thika Rd, Nairobi, Kenya".to_string(),
+                api_response,
+            })
+            .await
+            .unwrap();
+        db.subscribe_to_primary_location(subscriber_id, location_id)
+            .await
+            .unwrap();
+        let nearby_contents = include_str!("mock_data/mi_vida_nearby_locations.json");
+        let nearby_contents_value: Value = serde_json::from_str(contents).unwrap();
+        let url = Url::parse("https://maps.googleapis.com/maps/api/place/nearbysearch/json?rankby=distance&location=-1.234527, 36.8769241").unwrap();
+        let nearby_location_id = db
+            .save_nearby_locations(url, location_id, nearby_contents_value)
+            .await
+            .unwrap();
+        let notification = db
+            .is_potentially_affected(subscriber_id, nearby_location_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(
+            notification.subscriber,
+            AffectedSubscriber::PotentiallyAffected(subscriber_id)
+        );
+        let line = &notification.lines.first().unwrap().line;
+        assert_eq!(line, "Garden City");
     }
 }
