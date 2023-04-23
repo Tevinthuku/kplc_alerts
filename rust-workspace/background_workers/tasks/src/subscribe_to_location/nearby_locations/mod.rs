@@ -34,7 +34,6 @@ pub async fn get_nearby_locations(
     task_id: TaskId,
 ) -> TaskResult<()> {
     let url = generate_url(&primary_location)?;
-
     let db = DB::new().await;
     let already_fetched = db.is_nearby_locations_already_fetched(url.clone()).await?;
 
@@ -105,7 +104,7 @@ fn generate_url(primary_location: &PrimaryLocation) -> TaskResult<Url> {
 async fn get_nearby_locations_from_api(url: Url) -> TaskResult<serde_json::Value> {
     let raw_response = HttpClient::get_json::<serde_json::Value>(url)
         .await
-        .map_err(|err| TaskError::ExpectedError(err.to_string()))?;
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
 
     #[derive(Deserialize, Debug, Clone)]
     struct Response {

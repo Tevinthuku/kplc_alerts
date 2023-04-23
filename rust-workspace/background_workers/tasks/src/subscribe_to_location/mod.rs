@@ -149,7 +149,7 @@ async fn get_place_details(url: Url) -> TaskResult<LocationInput> {
     }
     let result = HttpClient::get_json::<serde_json::Value>(url)
         .await
-        .map_err(|err| TaskError::ExpectedError(err.to_string()))?;
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
     let response: Response = serde_json::from_value(result.clone())
         .with_expected_err(|| format!("Invalid response {result:?}"))?;
 

@@ -164,8 +164,6 @@ impl DB {
         &self,
         location: ExternalLocationId,
     ) -> TaskResult<Option<LocationWithCoordinates>> {
-        let _pool = self.pool();
-
         #[derive(Deserialize)]
 
         struct LatitudeAndLongitude {
@@ -185,14 +183,19 @@ impl DB {
         }
 
         #[derive(Deserialize)]
+        struct ResultWrapper {
+            result: DataResult,
+        }
+
+        #[derive(Deserialize)]
         struct Row {
             id: Uuid,
-            value: Json<DataResult>,
+            value: Json<ResultWrapper>,
         }
         let result = sqlx::query_as!(
             Row,
             r#"
-            SELECT id, external_api_response as "value: Json<DataResult>" FROM location.locations WHERE external_id = $1
+            SELECT id, external_api_response as "value: Json<ResultWrapper>" FROM location.locations WHERE external_id = $1
             "#,
             location.inner()
         )
@@ -203,8 +206,8 @@ impl DB {
 
         let result = result.map(|data| LocationWithCoordinates {
             location_id: data.id.into(),
-            latitude: data.value.geometry.location.lat,
-            longitude: data.value.geometry.location.lng,
+            latitude: data.value.result.geometry.location.lat,
+            longitude: data.value.result.geometry.location.lng,
         });
 
         Ok(result)

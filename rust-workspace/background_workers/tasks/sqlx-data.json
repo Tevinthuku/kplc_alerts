@@ -34,7 +34,7 @@
     },
     "query": "\n            SELECT id FROM location.locations WHERE external_id = $1\n            "
   },
-  "c0d521b1e99bf6fd5c4cc18d659069d27e3be33315299f308ac8c2f6feea4f9c": {
+  "b2eb8d013e30b9dbecf02f6e34f52e849519341d983d8b91e318563b277ed61c": {
     "describe": {
       "columns": [
         {
@@ -43,7 +43,7 @@
           "type_info": "Uuid"
         },
         {
-          "name": "value: Json<DataResult>",
+          "name": "value: Json<ResultWrapper>",
           "ordinal": 1,
           "type_info": "Jsonb"
         }
@@ -58,7 +58,7 @@
         ]
       }
     },
-    "query": "\n            SELECT id, external_api_response as \"value: Json<DataResult>\" FROM location.locations WHERE external_id = $1\n            "
+    "query": "\n            SELECT id, external_api_response as \"value: Json<ResultWrapper>\" FROM location.locations WHERE external_id = $1\n            "
   },
   "c9196fb2338d14fe601d614f6f403966c5ab9b1d84a667d93d97bae69edfd08f": {
     "describe": {
