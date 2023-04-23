@@ -1,4 +1,5 @@
 pub mod db;
+pub mod nearby_locations;
 mod primary_location;
 
 use anyhow::Context;
@@ -7,8 +8,6 @@ use celery::prelude::*;
 use entities::locations::ExternalLocationId;
 
 use entities::subscriptions::SubscriberId;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
 use secrecy::ExposeSecret;
 use shared_kernel::http_client::HttpClient;
 use sqlx_postgres::locations::insert_location::LocationInput;
@@ -26,64 +25,15 @@ use sqlx_postgres::cache::location_search::StatusCode;
 use use_cases::subscriber_locations::subscribe_to_location::TaskId;
 use uuid::Uuid;
 
+use crate::subscribe_to_location::nearby_locations::get_nearby_locations;
+use crate::subscribe_to_location::primary_location::db_access::LocationWithCoordinates;
 use crate::utils::progress_tracking::set_progress_status;
 use crate::{
     configuration::{REPO, SETTINGS_CONFIG},
     utils::callbacks::failure_callback,
 };
 
-use self::db::DB;
-
-#[celery::task(max_retries = 200, bind=true, retry_for_unexpected = false, on_failure = failure_callback)]
-pub async fn get_and_subscribe_to_nearby_location(
-    task: &Self,
-    external_id: ExternalLocationId,
-    subscriber_primary_location_id: Uuid,
-    subscriber_id: SubscriberId,
-    subscriber_directly_affected: bool,
-    task_id: TaskId,
-) -> TaskResult<()> {
-    let db = DB::new().await;
-    let id = db.find_location_id(external_id.clone()).await?;
-    let location_id = match id {
-        None => {
-            let token_count = get_location_token().await?;
-
-            if token_count < 0 {
-                return Task::retry_with_countdown(task, 1);
-            }
-
-            get_location_from_api(external_id.clone()).await?
-        }
-        Some(id) => id,
-    };
-    let repo = REPO.get().await;
-
-    repo.subscribe_to_adjuscent_location(subscriber_primary_location_id, location_id)
-        .await
-        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
-
-    if subscriber_directly_affected {
-        return Ok(());
-    }
-    let notification = repo
-        .subscriber_potentially_affected(subscriber_id, location_id)
-        .await
-        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
-
-    decr_count_by_one(task_id).await?;
-
-    if let Some(notification) = notification {
-        let _ = task
-            .request
-            .app
-            .send_task(send_email_notification::new(notification))
-            .await
-            .with_expected_err(|| "Failed to send task")?;
-    }
-
-    Ok(())
-}
+use self::{db::DB, nearby_locations::PrimaryLocation};
 
 async fn decr_count_by_one(task_id: TaskId) -> TaskResult<()> {
     let key = generate_key(task_id.as_ref());
@@ -108,8 +58,10 @@ pub async fn fetch_and_subscribe_to_locations(
         .await
         .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
     let db = DB::new().await;
-    let id = db.find_location_id(primary_location.clone()).await?;
-    let location_id = match id {
+    let location_with_coordinates = db
+        .find_location_id_and_coordinates(primary_location.clone())
+        .await?;
+    let location_with_coordinates = match location_with_coordinates {
         None => {
             let token_count = get_location_token().await?;
 
@@ -122,12 +74,12 @@ pub async fn fetch_and_subscribe_to_locations(
         Some(id) => id,
     };
 
-    let id = db
-        .subscribe_to_primary_location(subscriber, location_id)
+    let _ = db
+        .subscribe_to_primary_location(subscriber, location_with_coordinates.location_id)
         .await?;
 
     let direct_notification = db
-        .subscriber_directly_affected(subscriber, location_id)
+        .subscriber_directly_affected(subscriber, location_with_coordinates.location_id)
         .await?;
 
     decr_count_by_one(task_id.clone()).await?;
@@ -140,42 +92,41 @@ pub async fn fetch_and_subscribe_to_locations(
             .send_task(send_email_notification::new(notification))
             .await
             .with_expected_err(|| "Failed to send task")?;
+
+        return Ok(());
     }
 
-    let mut futures: FuturesUnordered<_> = nearby_locations
-        .into_iter()
-        .map(|nearby_location| {
-            task.request
-                .app
-                .send_task(get_and_subscribe_to_nearby_location::new(
-                    nearby_location,
-                    id,
-                    subscriber,
-                    subscriber_directly_affected,
-                    task_id.clone(),
-                ))
-        })
-        .collect();
-
-    while let Some(result) = futures.next().await {
-        if let Err(e) = result {
-            // TODO: Setup logging
-            println!("Error creating nearby location search: {e:?}")
-        }
-    }
+    let primary_location = PrimaryLocation {
+        location_id: location_with_coordinates.location_id.into(),
+        latitude: location_with_coordinates.latitude,
+        longitude: location_with_coordinates.longitude,
+    };
+    task.request
+        .app
+        .send_task(get_nearby_locations::new(
+            primary_location,
+            subscriber,
+            subscriber_directly_affected,
+            task_id.clone(),
+        ))
+        .await
+        .with_expected_err(|| "Failed to send get_nearby_locations task")?;
 
     Ok(())
 }
 
-async fn save_location_returning_id(location: LocationInput) -> TaskResult<LocationId> {
+async fn save_location_returning_id_and_coordinates(
+    location: LocationInput,
+) -> TaskResult<LocationWithCoordinates> {
     let repo = REPO.get().await;
+    let db = DB::new().await;
     let external_id = location.external_id.clone();
     let _ = repo
         .insert_location(location)
         .await
         .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
-    let location_id = repo
-        .find_location_id(external_id)
+    let location_id = db
+        .find_location_id_and_coordinates(external_id)
         .await
         .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
     location_id
@@ -197,13 +148,15 @@ fn generate_url(id: ExternalLocationId) -> anyhow::Result<Url> {
     .context("Failed to parse Url")
 }
 
-async fn get_location_from_api(external_id: ExternalLocationId) -> TaskResult<LocationId> {
+async fn get_location_from_api(
+    external_id: ExternalLocationId,
+) -> TaskResult<LocationWithCoordinates> {
     let url =
         generate_url(external_id).map_err(|err| TaskError::UnexpectedError(format!("{err}")))?;
 
     let location = get_place_details(url).await?;
 
-    save_location_returning_id(location.clone()).await
+    save_location_returning_id_and_coordinates(location.clone()).await
 }
 
 async fn get_place_details(url: Url) -> TaskResult<LocationInput> {
@@ -220,7 +173,7 @@ async fn get_place_details(url: Url) -> TaskResult<LocationInput> {
     }
     let result = HttpClient::get_json::<serde_json::Value>(url)
         .await
-        .map_err(|err| TaskError::ExpectedError(format!("{err}")))?;
+        .map_err(|err| TaskError::ExpectedError(err.to_string()))?;
     let response: Response = serde_json::from_value(result.clone())
         .with_expected_err(|| format!("Invalid response {result:?}"))?;
 

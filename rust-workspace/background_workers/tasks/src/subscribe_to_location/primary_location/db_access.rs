@@ -3,6 +3,7 @@ use crate::subscribe_to_location::db::{
 };
 use anyhow::anyhow;
 use anyhow::Context;
+use celery::prelude::TaskResultExt;
 use celery::{prelude::TaskError, task::TaskResult};
 use chrono::Utc;
 use entities::locations::ExternalLocationId;
@@ -11,10 +12,18 @@ use entities::power_interruptions::location::{AffectedLine, NairobiTZDateTime, T
 use entities::subscriptions::{AffectedSubscriber, SubscriberId};
 use entities::{locations::LocationId, power_interruptions::location::AreaName};
 use itertools::Itertools;
+use serde::Deserialize;
 use sqlx::types::chrono::DateTime;
+use sqlx::types::Json;
 use sqlx::PgPool;
 use url::Url;
 use uuid::Uuid;
+
+pub struct LocationWithCoordinates {
+    pub location_id: LocationId,
+    pub latitude: f64,
+    pub longitude: f64,
+}
 
 impl DB<'_> {
     pub async fn subscribe_to_primary_location(
@@ -47,22 +56,54 @@ impl DB<'_> {
         Ok(record.id)
     }
 
-    pub async fn find_location_id(
+    pub async fn find_location_id_and_coordinates(
         &self,
         location: ExternalLocationId,
-    ) -> TaskResult<Option<LocationId>> {
+    ) -> TaskResult<Option<LocationWithCoordinates>> {
         let pool = self.pool();
-        let db_results = sqlx::query!(
+
+        #[derive(Deserialize)]
+
+        struct LatitudeAndLongitude {
+            lat: f64,
+            lng: f64,
+        }
+
+        #[derive(Deserialize)]
+
+        struct Geometry {
+            location: LatitudeAndLongitude,
+        }
+
+        #[derive(Deserialize)]
+        struct DataResult {
+            geometry: Geometry,
+        }
+
+        #[derive(Deserialize)]
+        struct Row {
+            id: Uuid,
+            value: Json<DataResult>,
+        }
+        let result = sqlx::query_as!(
+            Row,
             r#"
-            SELECT id
-            FROM location.locations WHERE external_id = $1
+            SELECT id, external_api_response as "value: Json<DataResult>" FROM location.locations WHERE external_id = $1
             "#,
             location.inner()
         )
-        .fetch_optional(pool)
-        .await
-        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
-        Ok(db_results.map(|record| record.id.into()))
+        .fetch_optional(self.pool())
+        .await.with_unexpected_err(|| {
+            format!("Failed to get response from FROM location.locations WHERE external_id = {}", location.inner())
+        })?;
+
+        let result = result.map(|data| LocationWithCoordinates {
+            location_id: data.id.into(),
+            latitude: data.value.geometry.location.lat,
+            longitude: data.value.geometry.location.lng,
+        });
+
+        Ok(result)
     }
 
     pub async fn subscriber_directly_affected(
@@ -119,7 +160,7 @@ impl DB<'_> {
                 subscriber: AffectedSubscriber::DirectlyAffected(subscriber_id),
                 affected_lines,
             }
-            .generate(location)
+            .generate(location.search_query, location.id.into())
             .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
 
             Ok(Some(notification))

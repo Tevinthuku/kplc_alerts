@@ -258,9 +258,15 @@ impl Repository {
             to: NairobiTZDateTime::from(&time_frame.to),
         };
 
-        let nearby_locations = sqlx::query_as::<_, DbLocationSearchResults>(
+        #[derive(sqlx::FromRow, Debug)]
+        pub struct NearbySearchResult {
+            candidate: String,
+            location_id: Uuid,
+        }
+
+        let nearby_locations = sqlx::query_as::<_, NearbySearchResult>(
             "
-                SELECT * FROM location.search_locations_secondary_text($1::text[])
+                SELECT * FROM location.search_nearby_locations($1::text[])
                 ",
         )
         .bind(&searcheable_candidates)
@@ -270,7 +276,7 @@ impl Repository {
 
         let location_ids = nearby_locations
             .iter()
-            .map(|location| location.id)
+            .map(|location| location.location_id)
             .collect_vec();
 
         let potentially_affected_subscribers = self
@@ -285,7 +291,7 @@ impl Repository {
 
         let location_ids_to_search_query = nearby_locations
             .iter()
-            .map(|data| (data.id, data.search_query.clone()))
+            .map(|data| (data.location_id, data.candidate.clone()))
             .collect::<HashMap<_, _>>();
 
         let mapping_of_searcheable_candidate_to_candidate =
@@ -507,58 +513,6 @@ mod tests {
         println!("{results:?}");
         assert!(!results.is_empty());
         let key = AffectedSubscriber::DirectlyAffected(subscriber_id);
-        assert!(results.contains_key(&key));
-        let value = results.get(&key).unwrap().first().unwrap();
-        assert_eq!(&value.line, "Garden City Mall")
-    }
-
-    #[tokio::test]
-    async fn test_searching_adjuscent_location_results_in_potentially_affected_subscriber() {
-        let repository = Repository::new_test_repo().await;
-        let subscriber_id = authenticate(&repository).await;
-        let contents = include_str!("mock_data/mi_vida_homes.json");
-        let api_response: Value = serde_json::from_str(contents).unwrap();
-
-        let location_id = repository
-            .insert_location(LocationInput {
-                name: "Mi Vida Homes".to_string(),
-                external_id: ExternalLocationId::from("ChIJhVbiHlwVLxgRUzt5QN81vPA".to_string()),
-                address: "Off exit, 7 Thika Rd, Nairobi, Kenya".to_string(),
-                api_response,
-            })
-            .await
-            .unwrap();
-
-        let initial_location_id = repository
-            .subscribe_to_location(subscriber_id, location_id)
-            .await
-            .unwrap();
-        let contents = include_str!("mock_data/garden_city_details_response.json");
-        let api_response: Value = serde_json::from_str(contents).unwrap();
-        let adjuscent_location_id = repository
-            .insert_location(LocationInput {
-                name: "Garden city Mall".to_string(),
-                external_id: ExternalLocationId::from("ChIJGdueTt0VLxgRk19ir6oE8I0".to_string()),
-                address: "Thika Rd, Nairobi, Kenya".to_string(),
-                api_response,
-            })
-            .await
-            .unwrap();
-
-        repository
-            .subscribe_to_adjuscent_location(initial_location_id, adjuscent_location_id)
-            .await
-            .unwrap();
-
-        let results = repository
-            .get_affected_subscribers(&[generate_region()])
-            .await
-            .unwrap();
-
-        println!("{results:?}");
-
-        assert!(!results.is_empty());
-        let key = AffectedSubscriber::PotentiallyAffected(subscriber_id);
         assert!(results.contains_key(&key));
         let value = results.get(&key).unwrap().first().unwrap();
         assert_eq!(&value.line, "Garden City Mall")

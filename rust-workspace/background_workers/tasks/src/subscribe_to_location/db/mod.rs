@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Context};
-use celery::{prelude::TaskError, task::TaskResult};
-use entities::locations::{ExternalLocationId, LocationId};
-use entities::subscriptions::{AffectedSubscriber, SubscriberId};
+use entities::locations::LocationId;
+use entities::subscriptions::AffectedSubscriber;
 use sqlx::PgPool;
 use sqlx_postgres::repository::Repository;
 use std::collections::HashMap;
@@ -137,7 +136,8 @@ pub(crate) struct NotificationGenerator<'a> {
 impl<'a> NotificationGenerator<'a> {
     pub(crate) fn generate(
         &self,
-        location: DbLocationSearchResults,
+        search_query: String,
+        location_id: LocationId,
     ) -> anyhow::Result<Notification> {
         let BareAffectedLinesMapping {
             mapping_of_line_to_time_frame,
@@ -145,10 +145,10 @@ impl<'a> NotificationGenerator<'a> {
             mapping_of_line_to_url,
         } = BareAffectedLinesMapping::generate(self.affected_lines);
         let original_line_candidate = mapping_of_searcheble_candidate_to_original_line_candidate
-            .get(&location.search_query)
+            .get(&search_query)
             .ok_or(anyhow!(
                 "Failed to get original_line_candidate from search_query {}",
-                location.search_query
+                search_query
             ))?;
 
         let time_frame = *mapping_of_line_to_time_frame
@@ -163,7 +163,7 @@ impl<'a> NotificationGenerator<'a> {
                 "Failed to get url from mapping_of_line_to_url for line {original_line_candidate}"
             ))?;
         let affected_line = AffectedLine {
-            location_matched: location.id.into(),
+            location_matched: location_id,
             line: original_line_candidate.to_string(),
             time_frame: time_frame.clone(),
         };
