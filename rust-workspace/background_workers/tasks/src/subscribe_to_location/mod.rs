@@ -13,11 +13,9 @@ use shared_kernel::http_client::HttpClient;
 use url::Url;
 
 use crate::{
-    send_notifications::email::send_email_notification,
-    utils::{get_token::get_location_token, progress_tracking::generate_key},
+    send_notifications::email::send_email_notification, utils::get_token::get_location_token,
 };
 
-use redis_client::client::CLIENT;
 use serde::Deserialize;
 
 use sqlx_postgres::cache::location_search::StatusCode;
@@ -28,22 +26,9 @@ use crate::subscribe_to_location::primary_location::db_access::{
     LocationInput, LocationWithCoordinates,
 };
 use crate::utils::progress_tracking::{set_progress_status, TaskStatus};
-use crate::{
-    configuration::{REPO, SETTINGS_CONFIG},
-    utils::callbacks::failure_callback,
-};
+use crate::{configuration::SETTINGS_CONFIG, utils::callbacks::failure_callback};
 
 use self::{db::DB, nearby_locations::PrimaryLocation};
-
-async fn decr_count_by_one(task_id: TaskId) -> TaskResult<()> {
-    let key = generate_key(task_id.as_ref());
-    let client = CLIENT.get().await;
-
-    client
-        .decr_count(&key, 1)
-        .await
-        .map_err(|err| TaskError::UnexpectedError(err.to_string()))
-}
 
 #[celery::task(max_retries = 200, bind = true, retry_for_unexpected = false, on_failure = failure_callback)]
 pub async fn fetch_and_subscribe_to_locations(
@@ -84,8 +69,6 @@ pub async fn fetch_and_subscribe_to_locations(
         .subscriber_directly_affected(subscriber, location_with_coordinates.location_id)
         .await?;
 
-    decr_count_by_one(task_id.clone()).await?;
-
     let subscriber_directly_affected = direct_notification.is_some();
     if let Some(notification) = direct_notification {
         let _ = task
@@ -94,8 +77,6 @@ pub async fn fetch_and_subscribe_to_locations(
             .send_task(send_email_notification::new(notification))
             .await
             .with_expected_err(|| "Failed to send task")?;
-
-        return Ok(());
     }
 
     let primary_location = PrimaryLocation {
@@ -120,7 +101,6 @@ pub async fn fetch_and_subscribe_to_locations(
 async fn save_location_returning_id_and_coordinates(
     location: LocationInput,
 ) -> TaskResult<LocationWithCoordinates> {
-    let _repo = REPO.get().await;
     let db = DB::new().await;
     let external_id = location.external_id.clone();
     let _ = db.insert_location(location).await?;

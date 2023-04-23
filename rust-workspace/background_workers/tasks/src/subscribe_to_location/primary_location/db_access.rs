@@ -1,5 +1,5 @@
 use crate::subscribe_to_location::db::{
-    BareAffectedLine, DbLocationSearchResults, NotificationGenerator, SearcheableCandidate, DB,
+    BareAffectedLine, DbLocationSearchResults, NotificationGenerator, DB,
 };
 
 use anyhow::Context;
@@ -15,7 +15,7 @@ use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::{Captures, Regex, RegexBuilder};
 use serde::Deserialize;
-
+use sqlx_postgres::affected_subscribers::SearcheableCandidate;
 
 use sqlx::types::Json;
 use sqlx::PgPool;
@@ -313,18 +313,18 @@ impl DB {
 
 #[cfg(test)]
 pub mod tests {
-    
 
     use crate::subscribe_to_location::db::DB;
-    use crate::subscribe_to_location::primary_location::db_access::LocationInput;
-    
+    use crate::subscribe_to_location::primary_location::db_access::{
+        LocationInput, NonAcronymString,
+    };
+
     use entities::locations::ExternalLocationId;
     use entities::subscriptions::{AffectedSubscriber, SubscriberId};
-    
+
     use serde_json::Value;
     use sqlx_postgres::fixtures::SUBSCRIBER_EXTERNAL_ID;
-    
-    
+
     use uuid::Uuid;
 
     impl DB {
@@ -443,5 +443,30 @@ pub mod tests {
             notification.subscriber,
             AffectedSubscriber::DirectlyAffected(subscriber_id)
         );
+    }
+
+    #[test]
+    fn test_acronym_new_type() {
+        let value = "Garden city Rd";
+        let value = NonAcronymString::from(value.to_string());
+        let expected_value = "Garden city Road";
+        assert_eq!(value.to_string(), expected_value.to_string())
+    }
+
+    #[test]
+    fn test_acronym_with_list() {
+        let input_with_expected_result = vec![
+            ("Garden city Rd", "Garden city Road"),
+            ("Sombogo T/Fact", "Sombogo Tea Factory"),
+            ("DCI HQtrs", "DCI Headquaters"),
+        ];
+
+        input_with_expected_result
+            .iter()
+            .for_each(|(input, expected_result)| {
+                let value = NonAcronymString::from(input.to_string());
+
+                assert_eq!(value.to_string(), expected_result.to_string())
+            })
     }
 }

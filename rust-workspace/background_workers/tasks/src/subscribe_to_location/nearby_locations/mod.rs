@@ -14,9 +14,9 @@ use sqlx_postgres::cache::location_search::StatusCode;
 use url::Url;
 use use_cases::subscriber_locations::subscribe_to_location::TaskId;
 
-
 use crate::send_notifications::email::send_email_notification;
 use crate::utils::get_token::get_location_token;
+use crate::utils::progress_tracking::{set_progress_status, TaskStatus};
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct PrimaryLocation {
@@ -31,7 +31,7 @@ pub async fn get_nearby_locations(
     primary_location: PrimaryLocation,
     subscriber_id: SubscriberId,
     subscriber_directly_affected: bool,
-    _task_id: TaskId,
+    task_id: TaskId,
 ) -> TaskResult<()> {
     let url = generate_url(&primary_location)?;
 
@@ -50,6 +50,13 @@ pub async fn get_nearby_locations(
     };
 
     if subscriber_directly_affected {
+        set_progress_status(
+            task_id.as_ref(),
+            TaskStatus::Success.to_string(),
+            |_| Ok(()),
+        )
+        .await
+        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
         return Ok(());
     }
 
@@ -65,6 +72,14 @@ pub async fn get_nearby_locations(
             .await
             .with_expected_err(|| "Failed to send task")?;
     }
+
+    set_progress_status(
+        task_id.as_ref(),
+        TaskStatus::Success.to_string(),
+        |_| Ok(()),
+    )
+    .await
+    .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
     Ok(())
 }
 

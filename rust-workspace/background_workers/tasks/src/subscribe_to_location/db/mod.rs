@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context};
 use entities::locations::LocationId;
-use entities::subscriptions::{AffectedSubscriber};
+use entities::subscriptions::AffectedSubscriber;
 use sqlx::PgPool;
 use sqlx_postgres::repository::Repository;
 use std::collections::HashMap;
@@ -14,6 +14,7 @@ use entities::power_interruptions::location::{
 use itertools::Itertools;
 use sqlx::types::chrono::DateTime;
 
+use sqlx_postgres::affected_subscribers::SearcheableCandidate;
 use url::Url;
 
 use crate::configuration::REPO;
@@ -51,37 +52,6 @@ pub struct DbLocationSearchResults {
     pub search_query: String,
     pub location: String,
     pub id: Uuid,
-}
-
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub(crate) struct SearcheableCandidate(String);
-
-impl ToString for SearcheableCandidate {
-    fn to_string(&self) -> String {
-        self.0.clone()
-    }
-}
-
-impl AsRef<str> for SearcheableCandidate {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
-impl From<&str> for SearcheableCandidate {
-    fn from(value: &str) -> Self {
-        let value = value.trim().replace(' ', " <-> ");
-        SearcheableCandidate(value)
-    }
-}
-
-impl SearcheableCandidate {
-    pub fn from_area_name(area: &AreaName) -> Vec<Self> {
-        area.as_ref()
-            .split(',')
-            .map(SearcheableCandidate::from)
-            .collect_vec()
-    }
 }
 
 impl BareAffectedLine {

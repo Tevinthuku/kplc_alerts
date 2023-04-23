@@ -59,7 +59,7 @@ impl SubscriberRepo for Repository {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
-struct SearcheableCandidate(String);
+pub struct SearcheableCandidate(String);
 
 impl ToString for SearcheableCandidate {
     fn to_string(&self) -> String {

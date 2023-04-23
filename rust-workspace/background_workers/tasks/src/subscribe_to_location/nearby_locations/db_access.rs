@@ -1,6 +1,4 @@
-use crate::subscribe_to_location::db::{
-    BareAffectedLine, NotificationGenerator, SearcheableCandidate, DB,
-};
+use crate::subscribe_to_location::db::{BareAffectedLine, NotificationGenerator, DB};
 use celery::error::TaskError;
 use celery::prelude::{TaskResult, TaskResultExt};
 use entities::locations::LocationId;
@@ -12,6 +10,8 @@ use sqlx::types::Json;
 use std::iter;
 use url::Url;
 use uuid::Uuid;
+
+use sqlx_postgres::affected_subscribers::SearcheableCandidate;
 
 uuid_key!(NearbyLocationId);
 
@@ -132,19 +132,16 @@ impl DB {
 
 #[cfg(test)]
 pub mod tests {
-    
 
     use crate::subscribe_to_location::db::DB;
     use crate::subscribe_to_location::primary_location::db_access::LocationInput;
-    
+
     use entities::locations::ExternalLocationId;
-    use entities::subscriptions::{AffectedSubscriber};
-    
+    use entities::subscriptions::AffectedSubscriber;
+
     use serde_json::Value;
-    
+
     use url::Url;
-    
-    
 
     #[tokio::test]
     async fn test_that_subscriber_is_marked_as_potentially_affected() {
