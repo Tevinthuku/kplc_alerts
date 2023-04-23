@@ -1,27 +1,27 @@
 use crate::subscribe_to_location::db::{
     BareAffectedLine, DbLocationSearchResults, NotificationGenerator, SearcheableCandidate, DB,
 };
-use anyhow::anyhow;
+
 use anyhow::Context;
 use celery::prelude::TaskResultExt;
 use celery::{prelude::TaskError, task::TaskResult};
-use chrono::Utc;
+
 use entities::locations::ExternalLocationId;
 use entities::notifications::Notification;
-use entities::power_interruptions::location::{AffectedLine, NairobiTZDateTime, TimeFrame};
+
 use entities::subscriptions::{AffectedSubscriber, SubscriberId};
 use entities::{locations::LocationId, power_interruptions::location::AreaName};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::{Captures, Regex, RegexBuilder};
 use serde::Deserialize;
-use sqlx::types::chrono::DateTime;
+
 
 use sqlx::types::Json;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use url::Url;
+
 use uuid::Uuid;
 
 lazy_static! {
@@ -164,7 +164,7 @@ impl DB {
         &self,
         location: ExternalLocationId,
     ) -> TaskResult<Option<LocationWithCoordinates>> {
-        let pool = self.pool();
+        let _pool = self.pool();
 
         #[derive(Deserialize)]
 
@@ -313,18 +313,18 @@ impl DB {
 
 #[cfg(test)]
 pub mod tests {
-    use std::collections::HashMap;
+    
 
     use crate::subscribe_to_location::db::DB;
     use crate::subscribe_to_location::primary_location::db_access::LocationInput;
-    use chrono::{Days, Utc};
+    
     use entities::locations::ExternalLocationId;
     use entities::subscriptions::{AffectedSubscriber, SubscriberId};
-    use serde::Deserialize;
+    
     use serde_json::Value;
     use sqlx_postgres::fixtures::SUBSCRIBER_EXTERNAL_ID;
-    use url::Url;
-    use use_cases::import_affected_areas::SaveBlackoutAffectedAreasRepo;
+    
+    
     use uuid::Uuid;
 
     impl DB {

@@ -460,7 +460,7 @@ mod test_fixtures {
         api_response: serde_json::Value,
     }
     impl Repository {
-        pub(super) async fn insert_location_and_subscribe(
+        pub async fn insert_location_and_subscribe(
             &self,
             location: LocationInput,
             subscriber: SubscriberId,
@@ -501,7 +501,7 @@ mod test_fixtures {
             location_id
         }
 
-        async fn save_nearby_locations(
+        pub async fn save_nearby_locations(
             &self,
             primary_location: LocationId,
             api_response: serde_json::Value,
@@ -530,9 +530,7 @@ mod test_fixtures {
         use crate::affected_subscribers::test_fixtures::LocationInput;
         use crate::fixtures::{nairobi_region, SUBSCRIBER_EXTERNAL_ID};
         use crate::repository::Repository;
-        use entities::power_interruptions::location::{
-            Area, FutureOrCurrentNairobiTZDateTime, TimeFrame,
-        };
+
         use entities::subscriptions::AffectedSubscriber;
         use serde_json::Value;
         use use_cases::notifications::notify_subscribers::SubscriberRepo;

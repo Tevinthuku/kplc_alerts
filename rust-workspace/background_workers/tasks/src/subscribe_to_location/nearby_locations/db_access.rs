@@ -132,19 +132,19 @@ impl DB {
 
 #[cfg(test)]
 pub mod tests {
-    use std::collections::HashMap;
+    
 
     use crate::subscribe_to_location::db::DB;
     use crate::subscribe_to_location::primary_location::db_access::LocationInput;
-    use chrono::{Days, Utc};
+    
     use entities::locations::ExternalLocationId;
-    use entities::subscriptions::{AffectedSubscriber, SubscriberId};
-    use serde::Deserialize;
+    use entities::subscriptions::{AffectedSubscriber};
+    
     use serde_json::Value;
-    use sqlx_postgres::fixtures::SUBSCRIBER_EXTERNAL_ID;
+    
     use url::Url;
-    use use_cases::import_affected_areas::SaveBlackoutAffectedAreasRepo;
-    use uuid::Uuid;
+    
+    
 
     #[tokio::test]
     async fn test_that_subscriber_is_marked_as_potentially_affected() {
@@ -165,7 +165,7 @@ pub mod tests {
         db.subscribe_to_primary_location(subscriber_id, location_id)
             .await
             .unwrap();
-        let nearby_contents = include_str!("mock_data/mi_vida_nearby_locations.json");
+        let _nearby_contents = include_str!("mock_data/mi_vida_nearby_locations.json");
         let nearby_contents_value: Value = serde_json::from_str(contents).unwrap();
         let url = Url::parse("https://maps.googleapis.com/maps/api/place/nearbysearch/json?rankby=distance&location=-1.234527, 36.8769241").unwrap();
         let nearby_location_id = db

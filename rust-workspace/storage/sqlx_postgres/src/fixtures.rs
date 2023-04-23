@@ -10,11 +10,9 @@ use use_cases::authentication::SubscriberAuthenticationRepo;
 
 use entities::power_interruptions::location::FutureOrCurrentNairobiTZDateTime;
 use entities::{
-    locations::ExternalLocationId,
     power_interruptions::location::{
         Area, County, ImportInput, NairobiTZDateTime, Region, TimeFrame,
     },
-    subscriptions::AffectedSubscriber,
 };
 use use_cases::import_affected_areas::SaveBlackoutAffectedAreasRepo;
 lazy_static! {

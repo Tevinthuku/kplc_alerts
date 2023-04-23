@@ -13,7 +13,7 @@ use shared_kernel::http_client::HttpClient;
 use sqlx_postgres::cache::location_search::StatusCode;
 use url::Url;
 use use_cases::subscriber_locations::subscribe_to_location::TaskId;
-use uuid::Uuid;
+
 
 use crate::send_notifications::email::send_email_notification;
 use crate::utils::get_token::get_location_token;
@@ -31,7 +31,7 @@ pub async fn get_nearby_locations(
     primary_location: PrimaryLocation,
     subscriber_id: SubscriberId,
     subscriber_directly_affected: bool,
-    task_id: TaskId,
+    _task_id: TaskId,
 ) -> TaskResult<()> {
     let url = generate_url(&primary_location)?;
 

@@ -16,13 +16,13 @@ use crate::{
     send_notifications::email::send_email_notification,
     utils::{get_token::get_location_token, progress_tracking::generate_key},
 };
-use entities::locations::LocationId;
+
 use redis_client::client::CLIENT;
 use serde::Deserialize;
 
 use sqlx_postgres::cache::location_search::StatusCode;
 use use_cases::subscriber_locations::subscribe_to_location::TaskId;
-use uuid::Uuid;
+
 
 use crate::subscribe_to_location::nearby_locations::get_nearby_locations;
 use crate::subscribe_to_location::primary_location::db_access::{
@@ -119,7 +119,7 @@ pub async fn fetch_and_subscribe_to_locations(
 async fn save_location_returning_id_and_coordinates(
     location: LocationInput,
 ) -> TaskResult<LocationWithCoordinates> {
-    let repo = REPO.get().await;
+    let _repo = REPO.get().await;
     let db = DB::new().await;
     let external_id = location.external_id.clone();
     let _ = db.insert_location(location).await?;

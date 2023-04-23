@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context};
 use entities::locations::LocationId;
-use entities::subscriptions::{AffectedSubscriber, SubscriberId};
+use entities::subscriptions::{AffectedSubscriber};
 use sqlx::PgPool;
 use sqlx_postgres::repository::Repository;
 use std::collections::HashMap;
@@ -13,7 +13,7 @@ use entities::power_interruptions::location::{
 };
 use itertools::Itertools;
 use sqlx::types::chrono::DateTime;
-use sqlx_postgres::fixtures::SUBSCRIBER_EXTERNAL_ID;
+
 use url::Url;
 
 use crate::configuration::REPO;
