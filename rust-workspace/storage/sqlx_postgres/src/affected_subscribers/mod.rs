@@ -138,6 +138,22 @@ impl Repository {
             )
             .await?;
 
+        let searcheable_candidates = searcheable_area_names
+            .iter()
+            .map(|name| name.as_ref())
+            .chain(searcheable_candidates.into_iter())
+            .collect_vec();
+
+        let mapping_of_searcheable_location_candidate_to_candidate_copy =
+            mapping_of_searcheable_location_candidate_to_candidate_copy
+                .into_iter()
+                .chain(
+                    searcheable_area_names
+                        .iter()
+                        .map(|area| (area.clone(), area.as_ref())),
+                )
+                .collect();
+
         let potentially_affected_subscribers = self
             .potentially_affected_subscribers(
                 &searcheable_candidates,
