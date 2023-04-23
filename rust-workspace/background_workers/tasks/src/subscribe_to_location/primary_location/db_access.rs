@@ -147,7 +147,7 @@ impl DB {
         )
         .execute(self.pool())
         .await
-        .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
+        .with_unexpected_err(|| "Failed to insert subscriber_location")?;
 
         let record = sqlx::query!(
             r#"
@@ -155,7 +155,7 @@ impl DB {
             "#,
              subscriber,
               location_id
-        ).fetch_one(self.pool()).await.map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
+        ).fetch_one(self.pool()).await.with_unexpected_err(|| "Failed to return id of subscribed location")?;
 
         Ok(record.id)
     }

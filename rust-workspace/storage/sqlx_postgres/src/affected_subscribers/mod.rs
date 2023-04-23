@@ -80,6 +80,10 @@ impl SearcheableCandidate {
             .map(SearcheableCandidate::from)
             .collect_vec()
     }
+
+    pub fn original_value(&self) -> String {
+        self.0.replace(" <-> ", " ")
+    }
 }
 
 impl From<&str> for SearcheableCandidate {
@@ -147,10 +151,11 @@ impl Repository {
         let mapping_of_searcheable_location_candidate_to_candidate_copy =
             mapping_of_searcheable_location_candidate_to_candidate_copy
                 .into_iter()
+                .map(|(candidate, original_value)| (candidate, original_value.to_owned()))
                 .chain(
                     searcheable_area_names
                         .iter()
-                        .map(|area| (area.clone(), area.as_ref())),
+                        .map(|area| (area.clone(), area.original_value())),
                 )
                 .collect();
 
@@ -272,7 +277,10 @@ impl Repository {
         &self,
         searcheable_candidates: &[&str],
         time_frame: &TimeFrame<FutureOrCurrentNairobiTZDateTime>,
-        mapping_of_searcheable_candidate_to_original_candidate: HashMap<SearcheableCandidate, &str>,
+        mapping_of_searcheable_candidate_to_original_candidate: HashMap<
+            SearcheableCandidate,
+            String,
+        >,
         mapping_of_subscriber_to_directly_affected_locations: HashMap<Uuid, Vec<Uuid>>,
     ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<AffectedLine<NairobiTZDateTime>>>> {
         let pool = self.pool();
@@ -319,12 +327,9 @@ impl Repository {
 
         let mapping_of_searcheable_candidate_to_candidate =
             mapping_of_searcheable_candidate_to_original_candidate
-                .iter()
+                .into_iter()
                 .map(|(searcheable_candidate, original_candidate)| {
-                    (
-                        searcheable_candidate.to_string(),
-                        original_candidate.to_string(),
-                    )
+                    (searcheable_candidate.to_string(), original_candidate)
                 })
                 .collect::<HashMap<_, _>>();
         let result = potentially_affected_subscribers
@@ -439,4 +444,161 @@ fn filter_out_directly_affected_subscriber_locations_from_potentially_affected(
             }
         })
         .collect::<HashMap<_, _>>()
+}
+
+mod test_fixtures {
+    use crate::repository::Repository;
+    use entities::locations::{ExternalLocationId, LocationId};
+    use entities::subscriptions::SubscriberId;
+    use sqlx::types::Json;
+    use url::Url;
+
+    pub struct LocationInput {
+        name: String,
+        address: String,
+        external_id: ExternalLocationId,
+        api_response: serde_json::Value,
+    }
+    impl Repository {
+        pub(super) async fn insert_location_and_subscribe(
+            &self,
+            location: LocationInput,
+            subscriber: SubscriberId,
+        ) -> LocationId {
+            let external_id = location.external_id.as_ref();
+            let address = location.address.clone();
+            struct Location {
+                id: uuid::Uuid,
+            }
+            let result = sqlx::query!(
+            "
+            INSERT INTO location.locations (name, external_id, address, sanitized_address, external_api_response)
+            VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id
+            ",
+            location.name,
+            external_id,
+            address.clone(),
+            address,
+            Json(location.api_response) as _
+        )
+        .fetch_one(self.pool())
+        .await.unwrap();
+
+            let location_id: LocationId = result.id.into();
+
+            let _ = sqlx::query!(
+                r#"
+              INSERT INTO location.subscriber_locations (subscriber_id, location_id)
+              VALUES ($1, $2) ON CONFLICT DO NOTHING
+            "#,
+                subscriber.inner(),
+                location_id.inner()
+            )
+            .execute(self.pool())
+            .await
+            .unwrap();
+
+            location_id
+        }
+
+        async fn save_nearby_locations(
+            &self,
+            primary_location: LocationId,
+            api_response: serde_json::Value,
+        ) {
+            let pool = self.pool();
+            let url =
+                Url::parse("https://www.kplc.co.ke/img/full/Interruption%20-%2022.12.2022.pdf")
+                    .unwrap();
+            sqlx::query!(
+                "
+            INSERT INTO location.nearby_locations (source_url, location_id, response) 
+            VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
+            ",
+                url.to_string(),
+                primary_location.inner(),
+                Json(api_response) as _
+            )
+            .execute(pool)
+            .await
+            .unwrap();
+        }
+    }
+
+    #[cfg(test)]
+    mod test {
+        use crate::affected_subscribers::test_fixtures::LocationInput;
+        use crate::fixtures::{nairobi_region, SUBSCRIBER_EXTERNAL_ID};
+        use crate::repository::Repository;
+        use entities::power_interruptions::location::{
+            Area, FutureOrCurrentNairobiTZDateTime, TimeFrame,
+        };
+        use entities::subscriptions::AffectedSubscriber;
+        use serde_json::Value;
+        use use_cases::notifications::notify_subscribers::SubscriberRepo;
+
+        #[tokio::test]
+        async fn test_directly_affected_subscriber_works() {
+            let repo = Repository::new_test_repo().await;
+
+            let subscriber = repo
+                .find_by_external_id(SUBSCRIBER_EXTERNAL_ID.clone())
+                .await
+                .unwrap();
+            let contents = include_str!("mock_data/garden_city_mall.json");
+            let api_response: Value = serde_json::from_str(contents).unwrap();
+            let location = LocationInput {
+                name: "Garden city mall".to_string(),
+                address: "Thika Road, Nairobi, Kenya".to_string(),
+                external_id: "ChIJGdueTt0VLxgRk19ir6oE8I0".into(),
+                api_response,
+            };
+            let _ = repo
+                .insert_location_and_subscribe(location, subscriber)
+                .await;
+
+            let result = repo
+                .get_affected_subscribers(&[nairobi_region()])
+                .await
+                .unwrap();
+
+            assert!(result
+                .get(&AffectedSubscriber::DirectlyAffected(subscriber))
+                .is_some())
+        }
+
+        #[tokio::test]
+        async fn test_potentially_affected_subscriber_works() {
+            let repo = Repository::new_test_repo().await;
+
+            let subscriber = repo
+                .find_by_external_id(SUBSCRIBER_EXTERNAL_ID.clone())
+                .await
+                .unwrap();
+            let contents = include_str!("mock_data/mi_vida_homes.json");
+            let api_response: Value = serde_json::from_str(contents).unwrap();
+            let location = LocationInput {
+                name: "Mi vida Homes".to_string(),
+                address: "Thika Road, Nairobi, Kenya".to_string(),
+                external_id: "ChIJhVbiHlwVLxgRUzt5QN81vPA".into(),
+                api_response,
+            };
+            let location = repo
+                .insert_location_and_subscribe(location, subscriber)
+                .await;
+
+            let contents = include_str!("mock_data/nearby_mi_vida_homes.json");
+            let api_response: Value = serde_json::from_str(contents).unwrap();
+            repo.save_nearby_locations(location, api_response).await;
+
+            let result = repo
+                .get_affected_subscribers(&[nairobi_region()])
+                .await
+                .unwrap();
+
+            assert!(result
+                .get(&AffectedSubscriber::PotentiallyAffected(subscriber))
+                .is_some())
+        }
+    }
 }

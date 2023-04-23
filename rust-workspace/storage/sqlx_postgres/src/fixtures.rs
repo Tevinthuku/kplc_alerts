@@ -20,6 +20,17 @@ use use_cases::import_affected_areas::SaveBlackoutAffectedAreasRepo;
 lazy_static! {
     pub static ref SUBSCRIBER_EXTERNAL_ID: SubscriberExternalId =
         "ChIJGdueTt0VLxgRk19ir6oE8I0".to_owned().try_into().unwrap();
+    pub static ref TOMORROW: FutureOrCurrentNairobiTZDateTime = {
+        let tomorrow = NairobiTZDateTime::try_from(
+            Utc::now()
+                .naive_utc()
+                .checked_add_days(Days::new(1))
+                .unwrap(),
+        )
+        .unwrap();
+        let tomorrow: FutureOrCurrentNairobiTZDateTime = tomorrow.try_into().unwrap();
+        tomorrow
+    };
 }
 
 impl Repository {
@@ -39,36 +50,32 @@ impl Repository {
     }
 }
 
-fn nairobi_region() -> Region {
-    let tomorrow = NairobiTZDateTime::try_from(
-        Utc::now()
-            .naive_utc()
-            .checked_add_days(Days::new(1))
-            .unwrap(),
-    )
-    .unwrap();
-    let tomorrow: FutureOrCurrentNairobiTZDateTime = tomorrow.try_into().unwrap();
+fn garden_city_area() -> Area<FutureOrCurrentNairobiTZDateTime> {
+    Area {
+        name: "Garden City".to_string().into(),
+        time_frame: TimeFrame {
+            from: TOMORROW.clone(),
+            to: TOMORROW.clone(),
+        },
+        locations: vec![
+            "Will Mary Estate".to_string(),
+            "Garden City Mall".to_string(),
+        ],
+    }
+}
+
+pub fn nairobi_region() -> Region {
     Region {
         region: "Nairobi".to_string(),
         counties: vec![County {
             name: "Nairobi".to_string(),
             areas: vec![
-                Area {
-                    name: "Garden City".to_string().into(),
-                    time_frame: TimeFrame {
-                        from: tomorrow.clone(),
-                        to: tomorrow.clone(),
-                    },
-                    locations: vec![
-                        "Will Mary Estate".to_string(),
-                        "Garden City Mall".to_string(),
-                    ],
-                },
+                garden_city_area(),
                 Area {
                     name: "Kibera".to_string().into(),
                     time_frame: TimeFrame {
-                        from: tomorrow.clone(),
-                        to: tomorrow.clone(),
+                        from: TOMORROW.clone(),
+                        to: TOMORROW.clone(),
                     },
                     locations: vec!["Pentecostal church".to_string()],
                 },

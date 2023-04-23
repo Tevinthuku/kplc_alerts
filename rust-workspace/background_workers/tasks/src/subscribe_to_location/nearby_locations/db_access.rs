@@ -9,6 +9,7 @@ use entities::subscriptions::{AffectedSubscriber, SubscriberId};
 use itertools::Itertools;
 use shared_kernel::uuid_key;
 use sqlx::types::Json;
+use std::iter;
 use url::Url;
 use uuid::Uuid;
 
@@ -43,17 +44,20 @@ impl DB {
             .await
             .map_err(|err| TaskError::UnexpectedError(err.to_string()))?;
 
-        let mut bare_affected_lines = vec![];
-        for (area_name, affected_lines) in results.into_iter() {
-            if let Some(line) = affected_lines.first() {
-                bare_affected_lines.push(BareAffectedLine {
-                    line: area_name.to_string(),
-                    url: line.url.clone(),
-                    time_frame: line.time_frame.clone(),
+        let bare_affected_lines = results
+            .into_iter()
+            .filter_map(|(area, affected_lines)| {
+                affected_lines.first().cloned().map(|line| {
+                    iter::once(BareAffectedLine {
+                        line: area.to_string(),
+                        url: line.url.clone(),
+                        time_frame: line.time_frame.clone(),
+                    })
+                    .chain(affected_lines.into_iter())
                 })
-            }
-            bare_affected_lines.extend(affected_lines.into_iter());
-        }
+            })
+            .flatten()
+            .collect_vec();
 
         let searcheable_candidates = bare_affected_lines
             .iter()
