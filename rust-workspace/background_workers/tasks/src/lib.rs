@@ -1,4 +1,4 @@
-use crate::subscribe_to_location::fetch_and_subscribe_to_locations;
+use crate::subscribe_to_location::fetch_and_subscribe_to_location;
 
 use crate::configuration::SETTINGS_CONFIG;
 use crate::send_notifications::email::send_email_notification;
@@ -27,13 +27,13 @@ pub async fn app() -> anyhow::Result<Arc<Celery>> {
     celery::app!(
         broker = RedisBroker { redis_host },
         tasks = [
-            fetch_and_subscribe_to_locations,
+            fetch_and_subscribe_to_location,
             search_locations_by_text,
             send_email_notification,
             get_nearby_locations
         ],
         task_routes = [
-            "fetch_and_subscribe_to_locations" => "locations_queue",
+            "fetch_and_subscribe_to_location" => "locations_queue",
             "search_locations_by_text" => "locations_queue",
             "send_email_notification" => "email_notifications_queue",
             "get_nearby_locations" => "get_nearby_locations_queue",

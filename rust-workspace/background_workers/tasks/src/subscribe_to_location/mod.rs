@@ -31,7 +31,7 @@ use crate::{configuration::SETTINGS_CONFIG, utils::callbacks::failure_callback};
 use self::{db::DB, nearby_locations::PrimaryLocation};
 
 #[celery::task(max_retries = 200, bind = true, retry_for_unexpected = false, on_failure = failure_callback)]
-pub async fn fetch_and_subscribe_to_locations(
+pub async fn fetch_and_subscribe_to_location(
     task: &Self,
     primary_location: ExternalLocationId,
     subscriber: SubscriberId,
