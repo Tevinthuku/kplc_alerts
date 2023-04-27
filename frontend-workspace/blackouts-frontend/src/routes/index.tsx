@@ -6,16 +6,16 @@ import {
   Route,
   Link,
 } from "react-router-dom";
-import SubscribeToLocation from "./Subscribe/SubscribeToLocation";
 import SubscribedLocations from "./SubscribedLocations";
 import Layout from "../components/Layout";
+import MainPage from "./MainPage";
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: (
       <Layout>
-        <SubscribeToLocation />
+        <MainPage />
       </Layout>
     ),
   },
