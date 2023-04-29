@@ -3,7 +3,6 @@ import useSWR from "swr";
 import * as React from "react";
 import ListSubheader from "@mui/material/ListSubheader";
 import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 
@@ -11,6 +10,7 @@ import DeleteTwoToneIcon from "@mui/icons-material/DeleteTwoTone";
 import Avatar from "@mui/material/Avatar";
 import UnsubscribeDialog from "./UnsubscribeDialog";
 import Loading from "../LoadingLocations";
+import ListItem from "@mui/material/ListItem";
 
 type Location = {
   id: string;
@@ -65,7 +65,7 @@ function Location({ location }: { location: Location }) {
   };
   return (
     <>
-      <ListItemButton disableRipple>
+      <ListItem>
         <ListItemIcon>
           <Avatar>{location.name[0]}</Avatar>
         </ListItemIcon>
@@ -74,10 +74,15 @@ function Location({ location }: { location: Location }) {
           secondary={location.address}
           onClick={handleToggleAdjuscentLocations}
         />
-        <ListItemIcon onClick={() => setOpenDialog(true)}>
+        <ListItemIcon
+          sx={{
+            cursor: "pointer",
+          }}
+          onClick={() => setOpenDialog(true)}
+        >
           <DeleteTwoToneIcon />
         </ListItemIcon>
-      </ListItemButton>
+      </ListItem>
       <UnsubscribeDialog
         open={openDialog}
         location={location}
