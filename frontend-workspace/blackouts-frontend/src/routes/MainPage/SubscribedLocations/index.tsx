@@ -1,21 +1,16 @@
 import { AxiosError } from "axios";
-import useSWR, { mutate } from "swr";
+import useSWR from "swr";
 import * as React from "react";
 import ListSubheader from "@mui/material/ListSubheader";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
-import Collapse from "@mui/material/Collapse";
-
-import ExpandLess from "@mui/icons-material/ExpandLess";
-import ExpandMore from "@mui/icons-material/ExpandMore";
 
 import DeleteTwoToneIcon from "@mui/icons-material/DeleteTwoTone";
-import NearMeTwoToneIcon from "@mui/icons-material/NearMeTwoTone";
-import { useDeleteLocationSubscription } from "./useDeleteSubscribedLocation";
 import Avatar from "@mui/material/Avatar";
 import UnsubscribeDialog from "./UnsubscribeDialog";
+import Loading from "../LoadingLocations";
 
 type Location = {
   id: string;
@@ -30,9 +25,10 @@ function useGetSubscribedLocations() {
 }
 
 export default function SubscribedLocations() {
-  const { data } = useGetSubscribedLocations();
+  const { data, isLoading } = useGetSubscribedLocations();
   return (
     <div>
+      {isLoading && <Loading />}
       {data && (
         <List
           sx={{ width: "100%", bgcolor: "background.paper" }}

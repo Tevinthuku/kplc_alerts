@@ -7,8 +7,8 @@ import MyLocationTwoToneIcon from "@mui/icons-material/MyLocationTwoTone";
 import AddLocationAltTwoToneIcon from "@mui/icons-material/AddLocationAltTwoTone";
 import React from "react";
 
-import { SubscribeToLocation } from "../Subscribe/SubscribeToLocation";
-import SubscribedLocations from "../SubscribedLocations";
+import SubscribeToLocation from "./Subscribe";
+import SubscribedLocations from "./SubscribedLocations";
 
 function TabsNavigation({
   value,
@@ -55,8 +55,14 @@ export default function MainPage() {
       }}
     >
       <TabsNavigation value={value} handleChange={handleChange} />
-      {value === 0 && <SubscribedLocations />}
-      {value === 1 && <SubscribeToLocation />}
+      <Box
+        sx={{
+          marginTop: "20px",
+        }}
+      >
+        {value === 0 && <SubscribedLocations />}
+        {value === 1 && <SubscribeToLocation />}
+      </Box>
     </Box>
   );
 }

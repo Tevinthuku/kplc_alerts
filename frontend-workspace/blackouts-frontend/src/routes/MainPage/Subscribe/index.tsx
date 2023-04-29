@@ -1,5 +1,5 @@
 import { Input } from "@mui/material";
-import SearchBox from "../../components/SearchBox";
+import SearchBox from "../../../components/SearchBox";
 import useSWR from "swr";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
@@ -48,21 +48,7 @@ function TabsNavigation({
   );
 }
 
-export default function MainPage() {
-  const [value, setValue] = React.useState(0);
-
-  const handleChange = (event: React.SyntheticEvent, newValue: number) => {
-    setValue(newValue);
-  };
-  return (
-    <div>
-      <TabsNavigation value={value} handleChange={handleChange} />
-      <SubscribeToLocation />
-    </div>
-  );
-}
-
-export function SubscribeToLocation() {
+export default function SubscribeToLocation() {
   const [openConfirmation, setOpenConfirmation] = React.useState(false);
   const [locationSelected, setLocationSelected] =
     React.useState<LocationSearchData | null>(null);
