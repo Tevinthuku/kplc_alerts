@@ -9,3 +9,4 @@ pub mod notifications;
 pub mod repository;
 pub mod save_import_input;
 pub mod subscriber_details;
+pub mod pool_manager;
