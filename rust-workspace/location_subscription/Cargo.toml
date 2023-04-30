@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 thiserror = "1.0.40"
 anyhow = "1.0.70"
+url = "2.3.1"
+
 shared_kernel = { path = "../shared_kernel" }
 entities = { path = "../entities" }
 sqlx_postgres = { path = "../storage/sqlx_postgres" }

@@ -1,8 +1,11 @@
 use entities::locations::{ExternalLocationId, LocationId};
 
+use crate::entities::{AffectedSubscriberWithLocationMatchedAndLineSchedule, LineScheduleId};
 use entities::power_interruptions::location::{NairobiTZDateTime, TimeFrame};
 use entities::subscriptions::{AffectedSubscriber, SubscriberId};
+use shared_kernel::uuid_key;
 use thiserror::Error;
+use url::Url;
 
 #[derive(Error, Debug)]
 pub enum SubscribeToLocationError {
@@ -12,25 +15,16 @@ pub enum SubscribeToLocationError {
     ExpectedError(String),
 }
 
-pub struct SubscribeUseCase;
+pub struct SubscribeInteractor;
 
-pub struct Line {
-    pub name: String,
-    pub time_frame: TimeFrame<NairobiTZDateTime>,
-}
-
-pub struct Notification {
-    pub url: Url,
-    pub line: Line,
-    pub location_id_matched: LocationId,
-    pub subscriber: AffectedSubscriber,
-}
-
-impl SubscribeUseCase {
+impl SubscribeInteractor {
     pub async fn subscribe_to_location(
         subscriber_id: SubscriberId,
         external_id: ExternalLocationId,
-    ) -> Result<Option<Notification>, SubscribeToLocationError> {
+    ) -> Result<
+        Option<AffectedSubscriberWithLocationMatchedAndLineSchedule>,
+        SubscribeToLocationError,
+    > {
         todo!()
     }
 }
