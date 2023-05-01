@@ -7,6 +7,15 @@ pub struct PoolManager {
     pub(crate) pg_pool: Arc<PgPool>,
 }
 
+#[derive(Clone)]
+pub struct PoolWrapper<'a>(&'a PgPool);
+
+impl<'a> AsRef<PgPool> for PoolWrapper<'a> {
+    fn as_ref(&self) -> &'a PgPool {
+        &self.0
+    }
+}
+
 impl PoolManager {
     pub async fn new(max_connections: u32) -> anyhow::Result<Self> {
         let pg_connection = Settings::with_db()?;
@@ -20,7 +29,7 @@ impl PoolManager {
         })
     }
 
-    pub fn pool(&self) -> &PgPool {
-        self.pg_pool.as_ref()
+    pub fn pool(&self) -> PoolWrapper {
+        PoolWrapper(self.pg_pool.as_ref())
     }
 }

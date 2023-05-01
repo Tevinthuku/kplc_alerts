@@ -3,6 +3,7 @@ mod db_access;
 use entities::locations::{ExternalLocationId, LocationId};
 
 use crate::data_transfer::{AffectedSubscriberWithLocationMatchedAndLineSchedule, LineScheduleId};
+use crate::use_cases::subscribe::db_access::SubscriptionDbAccess;
 use entities::power_interruptions::location::{NairobiTZDateTime, TimeFrame};
 use entities::subscriptions::{AffectedSubscriber, SubscriberId};
 use shared_kernel::uuid_key;
@@ -27,6 +28,7 @@ impl SubscribeInteractor {
         Option<AffectedSubscriberWithLocationMatchedAndLineSchedule>,
         SubscribeToLocationError,
     > {
+        let db = SubscriptionDbAccess::new();
         todo!()
     }
 }

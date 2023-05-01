@@ -1,5 +1,5 @@
 use crate::db_access::DbAccess;
-use entities::locations::ExternalLocationId;
+use entities::locations::{ExternalLocationId, LocationId};
 use entities::subscriptions::SubscriberId;
 
 pub struct SaveLocationsAndSearchAffectedSubscribers {
@@ -23,7 +23,10 @@ impl SaveLocationsAndSearchAffectedSubscribers {
         todo!()
     }
 
-    pub async fn save_nearby_location(&self) -> anyhow::Result<()> {
+    pub async fn save_nearby_location(
+        &self,
+        primary_location_id: LocationId,
+    ) -> anyhow::Result<()> {
         todo!()
     }
 
