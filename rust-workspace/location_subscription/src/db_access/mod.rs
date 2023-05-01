@@ -1,3 +1,5 @@
+mod subscribe_and_get_affected_subscribers;
+
 use async_once::AsyncOnce;
 use lazy_static::lazy_static;
 use serde::Deserialize;
@@ -24,6 +26,7 @@ lazy_static! {
     });
 }
 
+#[derive(Copy, Clone)]
 pub struct DbAccess;
 
 impl DbAccess {

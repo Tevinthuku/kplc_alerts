@@ -1,3 +1,5 @@
+mod db_access;
+
 use entities::locations::{ExternalLocationId, LocationId};
 
 use crate::data_transfer::{AffectedSubscriberWithLocationMatchedAndLineSchedule, LineScheduleId};
