@@ -2,6 +2,7 @@ use crate::configuration::Settings;
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct PoolManager {
     pub(crate) pg_pool: Arc<PgPool>,
 }

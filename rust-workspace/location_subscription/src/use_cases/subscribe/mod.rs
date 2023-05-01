@@ -1,6 +1,6 @@
 use entities::locations::{ExternalLocationId, LocationId};
 
-use crate::entities::{AffectedSubscriberWithLocationMatchedAndLineSchedule, LineScheduleId};
+use crate::data_transfer::{AffectedSubscriberWithLocationMatchedAndLineSchedule, LineScheduleId};
 use entities::power_interruptions::location::{NairobiTZDateTime, TimeFrame};
 use entities::subscriptions::{AffectedSubscriber, SubscriberId};
 use shared_kernel::uuid_key;

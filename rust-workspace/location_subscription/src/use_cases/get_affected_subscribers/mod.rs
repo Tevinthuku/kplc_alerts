@@ -1,4 +1,4 @@
-use crate::entities::AffectedSubscriberWithLocationMatchedAndLineSchedule;
+use crate::data_transfer::AffectedSubscriberWithLocationMatchedAndLineSchedule;
 use entities::power_interruptions::location::NairobiTZDateTime;
 use std::collections::HashMap;
 use url::Url;
