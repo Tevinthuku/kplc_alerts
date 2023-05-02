@@ -2,10 +2,14 @@ mod db_access;
 
 use entities::locations::{ExternalLocationId, LocationId};
 
-use crate::data_transfer::{AffectedSubscriberWithLocationMatchedAndLineSchedule, LineScheduleId};
+use crate::data_transfer::{
+    AffectedSubscriber, AffectedSubscriberWithLocationMatchedAndLineSchedule, LineScheduleId,
+    LineWithScheduledInterruptionTime, LocationMatchedAndLineSchedule,
+};
+use crate::save_and_search_for_locations::AffectedLocation;
 use crate::use_cases::subscribe::db_access::{LocationWithCoordinates, SubscriptionDbAccess};
 use entities::power_interruptions::location::{NairobiTZDateTime, TimeFrame};
-use entities::subscriptions::{AffectedSubscriber, SubscriberId};
+use entities::subscriptions::SubscriberId;
 use shared_kernel::uuid_key;
 use thiserror::Error;
 use url::Url;
@@ -50,14 +54,16 @@ impl SubscribeInteractor {
             Some(location) => location,
         };
 
+        let location_id = location.location_id;
+
         self.db
-            .subscribe(subscriber_id, location.location_id)
+            .subscribe(subscriber_id, location_id)
             .await
             .map_err(SubscribeToLocationError::InternalError)?;
 
         let already_saved = self
             .db
-            .are_nearby_locations_already_saved(location.location_id)
+            .are_nearby_locations_already_saved(location_id)
             .await
             .map_err(SubscribeToLocationError::InternalError)?;
 
@@ -66,7 +72,27 @@ impl SubscribeInteractor {
                 .await?;
         }
 
-        todo!()
+        let affected_location = self
+            .db
+            .is_location_affected(location_id)
+            .await
+            .map_err(SubscribeToLocationError::InternalError)?;
+
+        let result = affected_location.map(|location| {
+            let affected_subscriber = match location.is_directly_affected {
+                true => AffectedSubscriber::DirectlyAffected(subscriber_id),
+                false => AffectedSubscriber::PotentiallyAffected(subscriber_id),
+            };
+            AffectedSubscriberWithLocationMatchedAndLineSchedule {
+                affected_subscriber,
+                location_matched: LocationMatchedAndLineSchedule {
+                    line_schedule: location.line_matched,
+                    location_id,
+                },
+            }
+        });
+
+        Ok(result)
     }
 
     async fn search_for_location_details_from_api_and_save(

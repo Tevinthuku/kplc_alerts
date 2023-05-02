@@ -1,4 +1,6 @@
-use crate::data_transfer::AffectedSubscriberWithLocationMatchedAndLineSchedule;
+mod db_access;
+
+use crate::data_transfer::{AffectedSubscriber, LocationMatchedAndLineSchedule};
 use entities::power_interruptions::location::NairobiTZDateTime;
 use std::collections::HashMap;
 use url::Url;
@@ -30,7 +32,7 @@ pub struct ImportInput(pub HashMap<Url, Vec<Region>>);
 impl AffectedSubscribersInteractor {
     pub async fn get_affected_subscribers_from_import(
         input: ImportInput,
-    ) -> anyhow::Result<Vec<AffectedSubscriberWithLocationMatchedAndLineSchedule>> {
+    ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<LocationMatchedAndLineSchedule>>> {
         todo!()
     }
 }

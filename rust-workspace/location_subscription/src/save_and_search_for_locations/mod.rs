@@ -1,7 +1,7 @@
-use crate::data_transfer::{AffectedSubscriberWithLocationMatchedAndLineSchedule, LineScheduleId};
+use crate::data_transfer::LineWithScheduledInterruptionTime;
 use crate::db_access::DbAccess;
+use crate::use_cases::get_affected_subscribers::Region;
 use entities::locations::{ExternalLocationId, LocationId};
-use entities::subscriptions::SubscriberId;
 
 pub struct SaveAndSearchLocations {
     db_access: DbAccess,
@@ -15,13 +15,19 @@ pub struct LocationInput {
     pub api_response: serde_json::Value,
 }
 
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct AffectedLocation {
     pub location_id: LocationId,
-    pub line_matched: LineScheduleId,
+    pub line_matched: LineWithScheduledInterruptionTime,
     pub is_directly_affected: bool,
 }
 
 impl SaveAndSearchLocations {
+    pub fn new() -> Self {
+        Self {
+            db_access: DbAccess,
+        }
+    }
     pub async fn save_main_location(&self, primary_input: LocationInput) -> anyhow::Result<()> {
         todo!()
     }
@@ -57,5 +63,12 @@ impl SaveAndSearchLocations {
             return Ok(directly_affected);
         }
         self.potentially_affected(location_id).await
+    }
+
+    pub async fn get_affected_locations_from_regions(
+        &self,
+        regions: &[Region],
+    ) -> anyhow::Result<Vec<AffectedLocation>> {
+        todo!()
     }
 }
