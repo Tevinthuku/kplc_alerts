@@ -10,6 +10,8 @@ impl UnsubscribeFromLocationInteractor {
         subscriber_id: SubscriberId,
         location_id: LocationId,
     ) -> anyhow::Result<()> {
-        todo!()
+        db_access::UnsubscribeDbAccess::new()
+            .unsubscribe(subscriber_id, location_id)
+            .await
     }
 }
