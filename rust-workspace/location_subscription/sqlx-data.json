@@ -1,0 +1,16 @@
+{
+  "db": "PostgreSQL",
+  "11b4823b9e2d3c95df0746830c2a91e63505d45c70500e0311fa22704bb12d36": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "DELETE FROM location.subscriber_locations \n            WHERE subscriber_id = $1 AND location_id = $2"
+  }
+}

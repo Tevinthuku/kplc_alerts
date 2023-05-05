@@ -28,7 +28,7 @@ lazy_static! {
 pub struct DbAccess;
 
 impl DbAccess {
-    pub async fn pool() -> PoolWrapper<'static> {
+    pub async fn pool(&self) -> PoolWrapper<'static> {
         POOL_MANAGER.get().await.pool()
     }
 }

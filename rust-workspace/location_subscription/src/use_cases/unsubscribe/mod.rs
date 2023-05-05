@@ -1,3 +1,5 @@
+mod db_access;
+
 use entities::locations::{ExternalLocationId, LocationId};
 use entities::subscriptions::SubscriberId;
 
