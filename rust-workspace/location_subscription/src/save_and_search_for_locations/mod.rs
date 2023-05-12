@@ -234,4 +234,25 @@ impl SaveAndSearchLocations {
     ) -> anyhow::Result<Vec<AffectedLocation>> {
         todo!()
     }
+
+    pub async fn was_nearby_location_already_saved(
+        &self,
+        location_id: LocationId,
+    ) -> anyhow::Result<bool> {
+        let pool = self.db_access.pool().await;
+        let location_id = location_id.inner();
+        // TODO: Add an index for the location_id column
+        let db_results = sqlx::query!(
+            r#"
+            SELECT id
+            FROM location.nearby_locations WHERE location_id = $1
+            "#,
+            location_id
+        )
+        .fetch_optional(pool.as_ref())
+        .await
+        .context("Failed to fetch nearby_locations")?;
+
+        Ok(db_results.is_some())
+    }
 }

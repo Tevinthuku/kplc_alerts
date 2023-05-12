@@ -1,13 +1,16 @@
 mod db_access;
 
+use anyhow::Context;
 use entities::locations::{ExternalLocationId, LocationId};
+use secrecy::ExposeSecret;
 
+use crate::config::SETTINGS_CONFIG;
 use crate::data_transfer::{
     AffectedSubscriber, AffectedSubscriberWithLocationMatchedAndLineSchedule, LineScheduleId,
     LineWithScheduledInterruptionTime, LocationMatchedAndLineSchedule,
 };
-use crate::save_and_search_for_locations::AffectedLocation;
-use crate::use_cases::subscribe::db_access::{LocationWithCoordinates, SubscriptionDbAccess};
+use crate::save_and_search_for_locations::{AffectedLocation, LocationWithCoordinates};
+use crate::use_cases::subscribe::db_access::SubscriptionDbAccess;
 use entities::power_interruptions::location::{NairobiTZDateTime, TimeFrame};
 use entities::subscriptions::SubscriberId;
 use shared_kernel::uuid_key;
@@ -53,10 +56,7 @@ impl SubscribeInteractor {
             .map_err(SubscribeToLocationError::InternalError)?;
 
         let location = match existing_location {
-            None => {
-                self.search_for_location_details_from_api_and_save(external_id)
-                    .await?
-            }
+            None => main_location_search_and_save::execute(external_id, &self.db).await?,
             Some(location) => location,
         };
 
@@ -113,5 +113,82 @@ impl SubscribeInteractor {
         location: LocationWithCoordinates,
     ) -> Result<(), SubscribeToLocationError> {
         todo!()
+    }
+}
+
+mod main_location_search_and_save {
+    use crate::config::SETTINGS_CONFIG;
+    use crate::save_and_search_for_locations::{LocationInput, LocationWithCoordinates};
+    use crate::use_cases::subscribe::db_access::SubscriptionDbAccess;
+    use anyhow::{anyhow, bail, Context};
+    use entities::locations::ExternalLocationId;
+    use secrecy::ExposeSecret;
+    use serde::Deserialize;
+    use shared_kernel::http_client::HttpClient;
+    use sqlx_postgres::cache::location_search::StatusCode;
+    use url::Url;
+
+    fn generate_url(id: ExternalLocationId) -> anyhow::Result<Url> {
+        let place_details_path = "/place/details/json";
+
+        let host = &SETTINGS_CONFIG.location.host;
+        Url::parse_with_params(
+            &format!("{}{}", host, place_details_path),
+            &[
+                ("key", SETTINGS_CONFIG.location.api_key.expose_secret()),
+                ("place_id", &id.inner()),
+            ],
+        )
+        .context("Failed to parse Url")
+    }
+
+    async fn get_place_details(url: Url) -> anyhow::Result<LocationInput> {
+        #[derive(Deserialize, Debug, Clone)]
+        struct ResponseResult {
+            name: String,
+            formatted_address: String,
+            place_id: String,
+        }
+        #[derive(Deserialize, Debug, Clone)]
+        struct Response {
+            result: Option<ResponseResult>,
+            status: StatusCode,
+        }
+        let result = HttpClient::get_json::<serde_json::Value>(url).await?;
+        let response: Response = serde_json::from_value(result.clone())
+            .with_context(|| format!("Invalid response {result:?}"))?;
+
+        if response.status.is_cacheable() {
+            if let Some(response_result) = response.result {
+                return Ok(LocationInput {
+                    external_id: ExternalLocationId::new(response_result.place_id),
+                    name: response_result.name,
+                    address: response_result.formatted_address,
+                    api_response: result,
+                });
+            }
+        }
+        bail!("Failed to get valid response {result:?}")
+    }
+
+    async fn save_location_returning_id_and_coordinates(
+        location: LocationInput,
+        db: &SubscriptionDbAccess,
+    ) -> anyhow::Result<LocationWithCoordinates> {
+        let external_id = location.external_id.clone();
+        let _ = db.save_main_location(location).await?;
+        let location_id = db.find_location_by_external_id(external_id).await?;
+        location_id
+            .ok_or("Location not found")
+            .map_err(|err| anyhow!(err))
+    }
+
+    pub(super) async fn execute(
+        id: ExternalLocationId,
+        db: &SubscriptionDbAccess,
+    ) -> anyhow::Result<LocationWithCoordinates> {
+        let url = generate_url(id)?;
+        let location = get_place_details(url).await?;
+        save_location_returning_id_and_coordinates(location, db).await
     }
 }

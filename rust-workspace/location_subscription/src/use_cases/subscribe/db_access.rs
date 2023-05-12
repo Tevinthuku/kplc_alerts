@@ -3,7 +3,7 @@ use crate::data_transfer::{
 };
 use crate::db_access::DbAccess;
 use crate::save_and_search_for_locations::{
-    AffectedLocation, LocationWithCoordinates, SaveAndSearchLocations,
+    AffectedLocation, LocationInput, LocationWithCoordinates, SaveAndSearchLocations,
 };
 use anyhow::Context;
 use entities::locations::{ExternalLocationId, LocationId};
@@ -29,7 +29,22 @@ impl SubscriptionDbAccess {
         subscriber: SubscriberId,
         location_id: LocationId,
     ) -> anyhow::Result<()> {
-        todo!()
+        let subscriber = subscriber.inner();
+        let location_id = location_id.inner();
+        let pool = self.db.pool().await;
+        let _ = sqlx::query!(
+            r#"
+              INSERT INTO location.subscriber_locations (subscriber_id, location_id) 
+              VALUES ($1, $2) ON CONFLICT DO NOTHING
+            "#,
+            subscriber,
+            location_id
+        )
+        .execute(pool.as_ref())
+        .await
+        .context("Failed to insert subscriber_location")?;
+
+        Ok(())
     }
 
     pub(crate) async fn find_location_by_external_id(
@@ -45,7 +60,9 @@ impl SubscriptionDbAccess {
         &self,
         location: LocationId,
     ) -> anyhow::Result<bool> {
-        todo!()
+        self.save_and_search_for_locations
+            .was_nearby_location_already_saved(location)
+            .await
     }
 
     pub(crate) async fn is_location_affected(
@@ -54,6 +71,12 @@ impl SubscriptionDbAccess {
     ) -> anyhow::Result<Option<AffectedLocation>> {
         self.save_and_search_for_locations
             .affected_location(location)
+            .await
+    }
+
+    pub async fn save_main_location(&self, input: LocationInput) -> anyhow::Result<LocationId> {
+        self.save_and_search_for_locations
+            .save_main_location(input)
             .await
     }
 }

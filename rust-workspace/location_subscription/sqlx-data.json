@@ -33,6 +33,26 @@
     },
     "query": "\n            SELECT id FROM location.locations WHERE external_id = $1\n            "
   },
+  "ae4acf069c24ba0ef9c342248487d04f899253c1e8593a927b17f67d0dac0dfe": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT id\n            FROM location.nearby_locations WHERE location_id = $1\n            "
+  },
   "b2eb8d013e30b9dbecf02f6e34f52e849519341d983d8b91e318563b277ed61c": {
     "describe": {
       "columns": [
@@ -58,6 +78,19 @@
       }
     },
     "query": "\n            SELECT id, external_api_response as \"value: Json<ResultWrapper>\" FROM location.locations WHERE external_id = $1\n            "
+  },
+  "e13fced71b43c2f6abf8ab9652539fc2e4b3ae38da844d494e682cef9c6035af": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n              INSERT INTO location.subscriber_locations (subscriber_id, location_id) \n              VALUES ($1, $2) ON CONFLICT DO NOTHING\n            "
   },
   "e2349855ce41569176081a9ec4011a4ee79bd866b9dd3d69077bc3644a4db1a6": {
     "describe": {
