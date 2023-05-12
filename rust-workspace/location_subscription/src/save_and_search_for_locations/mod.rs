@@ -9,8 +9,9 @@ use regex::{Captures, Regex, RegexBuilder};
 use sqlx::types::Json;
 use std::collections::HashMap;
 
+use serde::Deserialize;
 use std::fmt::{Display, Formatter};
-
+use uuid::Uuid;
 lazy_static! {
     static ref ACRONYM_MAP: HashMap<String, &'static str> = HashMap::from([
         ("pri".to_string(), "Primary"),
@@ -88,6 +89,18 @@ pub struct AffectedLocation {
     pub is_directly_affected: bool,
 }
 
+pub struct LocationWithCoordinates {
+    pub location_id: LocationId,
+    pub latitude: f64,
+    pub longitude: f64,
+}
+
+impl Default for SaveAndSearchLocations {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SaveAndSearchLocations {
     pub fn new() -> Self {
         Self {
@@ -159,6 +172,60 @@ impl SaveAndSearchLocations {
             return Ok(directly_affected);
         }
         self.potentially_affected(location_id).await
+    }
+
+    pub async fn find_location_coordinates_by_external_id(
+        &self,
+        location: ExternalLocationId,
+    ) -> anyhow::Result<Option<LocationWithCoordinates>> {
+        #[derive(Deserialize)]
+
+        struct LatitudeAndLongitude {
+            lat: f64,
+            lng: f64,
+        }
+
+        #[derive(Deserialize)]
+
+        struct Geometry {
+            location: LatitudeAndLongitude,
+        }
+
+        #[derive(Deserialize)]
+        struct DataResult {
+            geometry: Geometry,
+        }
+
+        #[derive(Deserialize)]
+        struct ResultWrapper {
+            result: DataResult,
+        }
+
+        #[derive(Deserialize)]
+        struct Row {
+            id: Uuid,
+            value: Json<ResultWrapper>,
+        }
+        let pool = self.db_access.pool().await;
+        let result = sqlx::query_as!(
+            Row,
+            r#"
+            SELECT id, external_api_response as "value: Json<ResultWrapper>" FROM location.locations WHERE external_id = $1
+            "#,
+            location.inner()
+        )
+        .fetch_optional(pool.as_ref())
+        .await.with_context(|| {
+            format!("Failed to get response from FROM location.locations WHERE external_id = {}", location.inner())
+        })?;
+
+        let result = result.map(|data| LocationWithCoordinates {
+            location_id: data.id.into(),
+            latitude: data.value.result.geometry.location.lat,
+            longitude: data.value.result.geometry.location.lng,
+        });
+
+        Ok(result)
     }
 
     pub async fn get_affected_locations_from_regions(

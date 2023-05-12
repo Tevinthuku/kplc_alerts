@@ -26,6 +26,12 @@ pub struct SubscribeInteractor {
     db: SubscriptionDbAccess,
 }
 
+impl Default for SubscribeInteractor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SubscribeInteractor {
     pub fn new() -> Self {
         Self {

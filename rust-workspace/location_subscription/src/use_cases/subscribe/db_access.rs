@@ -2,19 +2,19 @@ use crate::data_transfer::{
     AffectedSubscriberWithLocationMatchedAndLineSchedule, LocationMatchedAndLineSchedule,
 };
 use crate::db_access::DbAccess;
-use crate::save_and_search_for_locations::{AffectedLocation, SaveAndSearchLocations};
+use crate::save_and_search_for_locations::{
+    AffectedLocation, LocationWithCoordinates, SaveAndSearchLocations,
+};
+use anyhow::Context;
 use entities::locations::{ExternalLocationId, LocationId};
 use entities::subscriptions::SubscriberId;
+use serde::Deserialize;
+use sqlx::types::Json;
+use uuid::Uuid;
 
 pub(crate) struct SubscriptionDbAccess {
     db: DbAccess,
     save_and_search_for_locations: SaveAndSearchLocations,
-}
-
-pub struct LocationWithCoordinates {
-    pub location_id: LocationId,
-    pub latitude: f64,
-    pub longitude: f64,
 }
 
 impl SubscriptionDbAccess {
@@ -34,9 +34,11 @@ impl SubscriptionDbAccess {
 
     pub(crate) async fn find_location_by_external_id(
         &self,
-        external_id: ExternalLocationId,
+        location: ExternalLocationId,
     ) -> anyhow::Result<Option<LocationWithCoordinates>> {
-        todo!()
+        self.save_and_search_for_locations
+            .find_location_coordinates_by_external_id(location)
+            .await
     }
 
     pub(crate) async fn are_nearby_locations_already_saved(

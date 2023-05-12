@@ -33,6 +33,32 @@
     },
     "query": "\n            SELECT id FROM location.locations WHERE external_id = $1\n            "
   },
+  "b2eb8d013e30b9dbecf02f6e34f52e849519341d983d8b91e318563b277ed61c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "value: Json<ResultWrapper>",
+          "ordinal": 1,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            SELECT id, external_api_response as \"value: Json<ResultWrapper>\" FROM location.locations WHERE external_id = $1\n            "
+  },
   "e2349855ce41569176081a9ec4011a4ee79bd866b9dd3d69077bc3644a4db1a6": {
     "describe": {
       "columns": [],
