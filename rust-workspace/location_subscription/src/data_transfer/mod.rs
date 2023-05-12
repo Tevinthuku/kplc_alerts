@@ -7,7 +7,6 @@ use url::Url;
 uuid_key!(LineScheduleId);
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
-
 pub enum AffectedSubscriber {
     DirectlyAffected(SubscriberId),
     PotentiallyAffected(SubscriberId),
