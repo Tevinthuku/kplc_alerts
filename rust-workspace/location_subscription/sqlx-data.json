@@ -161,5 +161,31 @@
       }
     },
     "query": "\n            INSERT INTO location.locations (name, external_id, address, sanitized_address, external_api_response) \n            VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING\n            "
+  },
+  "ef9bccd594750c7ce159972f97fb0d6f872acbd6cbc52606b2706014484e88c5": {
+    "describe": {
+      "columns": [
+        {
+          "name": "subscriber_id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "location_id",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "UuidArray"
+        ]
+      }
+    },
+    "query": "\n            SELECT subscriber_id, location_id FROM location.subscriber_locations\n            WHERE location_id = ANY($1)\n            "
   }
 }

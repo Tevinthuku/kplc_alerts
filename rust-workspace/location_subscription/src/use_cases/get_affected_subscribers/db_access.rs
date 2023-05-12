@@ -4,11 +4,13 @@ use crate::data_transfer::{
 use crate::db_access::DbAccess;
 use crate::save_and_search_for_locations::{AffectedLocation, SaveAndSearchLocations};
 use crate::use_cases::get_affected_subscribers::Region;
+use anyhow::Context;
 use entities::locations::LocationId;
 use entities::subscriptions::SubscriberId;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::iter;
+use url::Url;
 
 pub struct AffectedSubscribersDbAccess {
     location_search: SaveAndSearchLocations,
@@ -39,11 +41,12 @@ impl AffectedSubscribersDbAccess {
 
     pub async fn get_affected_subscribers(
         &self,
+        url: Url,
         regions: &[Region],
     ) -> anyhow::Result<HashMap<AffectedSubscriber, Vec<LocationMatchedAndLineSchedule>>> {
         let locations_matched = self
             .location_search
-            .get_affected_locations_from_regions(regions)
+            .get_affected_locations_from_regions(url, regions)
             .await?;
 
         let location_ids = locations_matched
@@ -101,6 +104,30 @@ impl AffectedSubscribersDbAccess {
         &self,
         location_ids: &[LocationId],
     ) -> anyhow::Result<HashMap<SubscriberId, Vec<LocationId>>> {
-        todo!()
+        let pool = self.db_access.pool().await;
+        let location_ids = location_ids
+            .iter()
+            .map(|location| location.inner())
+            .collect_vec();
+        let records = sqlx::query!(
+            "
+            SELECT subscriber_id, location_id FROM location.subscriber_locations
+            WHERE location_id = ANY($1)
+            ",
+            &location_ids[..]
+        )
+        .fetch_all(pool.as_ref())
+        .await
+        .context("Failed to fetch location.subscriber_locations")?;
+        let mapping = records
+            .into_iter()
+            .map(|data| {
+                (
+                    SubscriberId::from(data.subscriber_id),
+                    LocationId::from(data.location_id),
+                )
+            })
+            .into_group_map();
+        Ok(mapping)
     }
 }

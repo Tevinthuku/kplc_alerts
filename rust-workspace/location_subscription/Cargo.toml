@@ -18,6 +18,7 @@ sqlx = { version = "0.6", features = [ "offline", "runtime-tokio-native-tls" , "
 async_once = "0.2.6"
 lazy_static = "1.4.0"
 regex = "1.7.1"
+futures = "0.3"
 
 shared_kernel = { path = "../shared_kernel" }
 entities = { path = "../entities" }

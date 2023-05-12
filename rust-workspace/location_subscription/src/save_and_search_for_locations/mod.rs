@@ -10,6 +10,7 @@ use sqlx::types::Json;
 use std::collections::HashMap;
 
 use entities::power_interruptions::location::{AreaName, NairobiTZDateTime, TimeFrame};
+use futures::{stream::FuturesUnordered, StreamExt};
 use serde::Deserialize;
 use shared_kernel::uuid_key;
 use sqlx::types::chrono::{DateTime, Utc};
@@ -149,30 +150,6 @@ impl SaveAndSearchLocations {
         Ok(record.id.into())
     }
 
-    pub async fn save_nearby_location(
-        &self,
-        primary_location_id: LocationId,
-    ) -> anyhow::Result<()> {
-        todo!()
-    }
-
-    async fn potentially_affected(
-        &self,
-        location_id: LocationId,
-    ) -> anyhow::Result<Option<AffectedLocation>> {
-        todo!()
-    }
-
-    async fn directly_affected(
-        &self,
-        location_id: LocationId,
-    ) -> anyhow::Result<Option<AffectedLocation>> {
-        let results = BareAffectedLine::lines_affected_in_the_future(&self.db_access).await?;
-        for (area_name, affected_lines) in results.iter() {}
-
-        todo!()
-    }
-
     pub async fn affected_location(
         &self,
         location_id: LocationId,
@@ -242,9 +219,38 @@ impl SaveAndSearchLocations {
 
     pub async fn get_affected_locations_from_regions(
         &self,
+        url: Url,
         regions: &[Region],
     ) -> anyhow::Result<Vec<AffectedLocation>> {
-        todo!()
+        let areas = regions
+            .iter()
+            .flat_map(|region| {
+                region
+                    .counties
+                    .iter()
+                    .flat_map(|county| &county.areas)
+                    .collect_vec()
+            })
+            .collect_vec();
+        let mut futures: FuturesUnordered<_> = areas
+            .into_iter()
+            .map(|area| affected_locations_in_an_area::execute(area, url.clone(), &self.db_access))
+            .collect();
+
+        let mut result = vec![];
+
+        while let Some(future_result) = futures.next().await {
+            match future_result {
+                Ok(area_results) => {
+                    result.push(area_results);
+                }
+                Err(e) => {
+                    // TODO: Refactor to tracing block
+                    println!("Error searching locations {e:?}");
+                }
+            }
+        }
+        Ok(result.into_iter().flatten().collect_vec())
     }
 
     pub async fn was_nearby_location_already_saved(
@@ -253,7 +259,6 @@ impl SaveAndSearchLocations {
     ) -> anyhow::Result<Option<NearbyLocationId>> {
         let pool = self.db_access.pool().await;
         let location_id = location_id.inner();
-        // TODO: Add an index for the location_id column
         let db_results = sqlx::query!(
             r#"
             SELECT id
@@ -624,5 +629,266 @@ mod potentially_affected_location {
             return Ok(Some(affected_location));
         }
         Ok(None)
+    }
+}
+
+mod affected_locations_in_an_area {
+    use crate::data_transfer::LineWithScheduledInterruptionTime;
+    use crate::db_access::DbAccess;
+    use crate::save_and_search_for_locations::AffectedLocation;
+    use crate::use_cases::get_affected_subscribers::{Area, TimeFrame};
+    use anyhow::Context;
+    use entities::power_interruptions::location::AreaName;
+    use futures::stream::FuturesUnordered;
+    use futures::StreamExt;
+    use itertools::Itertools;
+    use sqlx_postgres::affected_subscribers::SearcheableCandidate;
+    use std::collections::{HashMap, HashSet};
+    use url::Url;
+    use uuid::Uuid;
+
+    #[derive(sqlx::FromRow, Debug)]
+    struct DbLocationSearchResults {
+        pub search_query: String,
+        pub location: String,
+        pub id: Uuid,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    struct AffectedLocationKey {
+        location_id: Uuid,
+        source_url: Url,
+        line_name: String,
+    }
+
+    impl AffectedLocationKey {
+        fn new(affected_location: &AffectedLocation) -> AffectedLocationKey {
+            AffectedLocationKey {
+                location_id: affected_location.location_id.inner(),
+                source_url: affected_location.line_matched.source_url.clone(),
+                line_name: affected_location.line_matched.line_name.clone(),
+            }
+        }
+    }
+
+    pub async fn execute(
+        area: &Area,
+        source_url: Url,
+        db: &DbAccess,
+    ) -> anyhow::Result<Vec<AffectedLocation>> {
+        let candidates = &area.locations;
+        let time_frame = area.time_frame.clone();
+
+        let mapping_of_searcheable_location_candidate_to_candidate = candidates
+            .iter()
+            .map(|candidate| {
+                (
+                    SearcheableCandidate::from(candidate.as_ref()),
+                    candidate.as_str(),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        let mapping_of_searcheable_location_candidate_to_candidate_copy =
+            mapping_of_searcheable_location_candidate_to_candidate.clone();
+
+        let searcheable_candidates = mapping_of_searcheable_location_candidate_to_candidate
+            .keys()
+            .map(|candidate| candidate.as_ref())
+            .collect_vec();
+
+        let searcheable_area_names =
+            SearcheableCandidate::from_area_name(&AreaName::new(area.name.clone()));
+
+        let directly_affected_locations = directly_affected_locations(
+            db,
+            &searcheable_area_names,
+            &searcheable_candidates,
+            time_frame.clone(),
+            &mapping_of_searcheable_location_candidate_to_candidate_copy,
+            source_url.clone(),
+        )
+        .await?;
+
+        let potentially_affected_locations = potentially_affected_locations(
+            db,
+            &searcheable_area_names,
+            &searcheable_candidates,
+            time_frame.clone(),
+            &mapping_of_searcheable_location_candidate_to_candidate_copy,
+            source_url,
+        )
+        .await?;
+
+        Ok(filter_out_duplicate_affected_locations(
+            directly_affected_locations,
+            potentially_affected_locations,
+        ))
+    }
+
+    async fn directly_affected_locations(
+        db: &DbAccess,
+        searcheable_area_names: &[SearcheableCandidate],
+        searcheable_candidates: &[&str],
+        time_frame: TimeFrame,
+        mapping_of_searcheable_candidate_to_original_candidate: &HashMap<
+            SearcheableCandidate,
+            &str,
+        >,
+        source: Url,
+    ) -> anyhow::Result<Vec<AffectedLocation>> {
+        let pool = db.pool().await;
+
+        let mut futures: FuturesUnordered<_> = searcheable_area_names
+            .into_iter()
+            .map(|area_name| {
+                sqlx::query_as::<_, DbLocationSearchResults>(
+                    "
+                        SELECT * FROM location.search_locations_primary_text($1::text[], $2::text)
+                        ",
+                )
+                .bind(searcheable_candidates)
+                .bind(area_name.to_string())
+                .fetch_all(pool.as_ref())
+            })
+            .collect();
+        let mut primary_locations = vec![];
+        while let Some(result) = futures.next().await {
+            primary_locations.push(result.context("Failed to get primary search results from db")?);
+        }
+        let primary_locations = primary_locations.into_iter().flatten().collect_vec();
+        let mapping_of_searcheable_candidate_to_candidate =
+            mapping_of_searcheable_candidate_to_original_candidate
+                .iter()
+                .map(|(searcheable_candidate, original_candidate)| {
+                    (
+                        searcheable_candidate.to_string(),
+                        original_candidate.to_string(),
+                    )
+                })
+                .collect::<HashMap<_, _>>();
+        let results = primary_locations
+            .into_iter()
+            .filter_map(|location| {
+                mapping_of_searcheable_candidate_to_candidate
+                    .get(&location.search_query)
+                    .map(|original_candidate| AffectedLocation {
+                        location_id: location.id.into(),
+                        line_matched: LineWithScheduledInterruptionTime {
+                            line_name: original_candidate.to_string(),
+                            from: time_frame.from.clone(),
+                            to: time_frame.to.clone(),
+                            source_url: source.clone(),
+                        },
+                        is_directly_affected: false,
+                    })
+            })
+            .collect_vec();
+        Ok(results)
+    }
+
+    async fn potentially_affected_locations(
+        db: &DbAccess,
+        searcheable_area_names: &[SearcheableCandidate],
+        searcheable_candidates: &[&str],
+        time_frame: TimeFrame,
+        mapping_of_searcheable_candidate_to_original_candidate: &HashMap<
+            SearcheableCandidate,
+            &str,
+        >,
+        source: Url,
+    ) -> anyhow::Result<Vec<AffectedLocation>> {
+        let searcheable_candidates = searcheable_area_names
+            .iter()
+            .map(|name| name.to_string())
+            .chain(searcheable_candidates.into_iter().map(ToString::to_string))
+            .collect_vec();
+
+        let mapping_of_searcheable_location_candidate_to_candidate_copy =
+            mapping_of_searcheable_candidate_to_original_candidate
+                .into_iter()
+                .map(|(candidate, original_value)| (candidate, original_value.to_owned()))
+                .chain(
+                    searcheable_area_names
+                        .iter()
+                        .map(|area| (area, area.as_ref())),
+                )
+                .collect::<HashMap<_, _>>();
+
+        #[derive(sqlx::FromRow, Debug)]
+        pub struct NearbySearchResult {
+            candidate: String,
+            location_id: Uuid,
+        }
+        let pool = db.pool().await;
+        let nearby_locations = sqlx::query_as::<_, NearbySearchResult>(
+            "
+                SELECT * FROM location.search_nearby_locations($1::text[])
+                ",
+        )
+        .bind(&searcheable_candidates)
+        .fetch_all(pool.as_ref())
+        .await
+        .context("Failed to get nearby location search results from db")?;
+
+        let location_ids_to_search_query = nearby_locations
+            .iter()
+            .map(|data| (data.location_id, data.candidate.clone()))
+            .collect::<HashMap<_, _>>();
+
+        let mapping_of_searcheable_candidate_to_candidate =
+            mapping_of_searcheable_candidate_to_original_candidate
+                .into_iter()
+                .map(|(searcheable_candidate, original_candidate)| {
+                    (searcheable_candidate.to_string(), original_candidate)
+                })
+                .collect::<HashMap<_, _>>();
+
+        let results = nearby_locations
+            .iter()
+            .filter_map(|location| {
+                location_ids_to_search_query
+                    .get(&location.location_id)
+                    .and_then(|candidate| {
+                        mapping_of_searcheable_candidate_to_candidate
+                            .get(&location.candidate)
+                            .cloned()
+                            .map(|line| (line, location.location_id))
+                    })
+                    .map(|(line, location)| AffectedLocation {
+                        location_id: location.into(),
+                        line_matched: LineWithScheduledInterruptionTime {
+                            line_name: line.to_string(),
+                            from: time_frame.from.clone(),
+                            to: time_frame.to.clone(),
+                            source_url: source.clone(),
+                        },
+                        is_directly_affected: false,
+                    })
+            })
+            .collect_vec();
+
+        Ok(results)
+    }
+
+    fn filter_out_duplicate_affected_locations(
+        directly_affected_locations: Vec<AffectedLocation>,
+        potentially_affected_locations: Vec<AffectedLocation>,
+    ) -> Vec<AffectedLocation> {
+        let directly_affected_location_keys = directly_affected_locations
+            .iter()
+            .map(|location| AffectedLocationKey::new(location))
+            .collect::<HashSet<_>>();
+        let potentially_affected_locations = potentially_affected_locations
+            .into_iter()
+            .filter(|location| {
+                !directly_affected_location_keys.contains(&AffectedLocationKey::new(location))
+            })
+            .collect_vec();
+
+        directly_affected_locations
+            .into_iter()
+            .chain(potentially_affected_locations.into_iter())
+            .collect_vec()
     }
 }
