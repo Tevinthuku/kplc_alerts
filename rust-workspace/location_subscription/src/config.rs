@@ -1,10 +1,7 @@
-use async_once::AsyncOnce;
 use lazy_static::lazy_static;
 use secrecy::Secret;
 use serde::Deserialize;
 use shared_kernel::configuration::config;
-use sqlx::postgres::PgPool;
-use sqlx_postgres::pool_manager::{PoolManager, PoolWrapper};
 
 #[derive(Deserialize)]
 pub struct PoolSettings {

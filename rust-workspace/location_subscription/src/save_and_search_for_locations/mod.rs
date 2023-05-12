@@ -1,6 +1,6 @@
 use crate::data_transfer::LineWithScheduledInterruptionTime;
 use crate::db_access::DbAccess;
-use crate::use_cases::get_affected_subscribers::Region;
+use crate::use_cases::get_affected_subscribers_from_import::Region;
 use anyhow::{anyhow, Context};
 use entities::locations::{ExternalLocationId, LocationId};
 use itertools::Itertools;
@@ -636,7 +636,7 @@ mod affected_locations_in_an_area {
     use crate::data_transfer::LineWithScheduledInterruptionTime;
     use crate::db_access::DbAccess;
     use crate::save_and_search_for_locations::AffectedLocation;
-    use crate::use_cases::get_affected_subscribers::{Area, TimeFrame};
+    use crate::use_cases::get_affected_subscribers_from_import::{Area, TimeFrame};
     use anyhow::Context;
     use entities::power_interruptions::location::AreaName;
     use futures::stream::FuturesUnordered;
@@ -851,7 +851,7 @@ mod affected_locations_in_an_area {
                     .get(&location.location_id)
                     .and_then(|candidate| {
                         mapping_of_searcheable_candidate_to_candidate
-                            .get(&location.candidate)
+                            .get(candidate)
                             .cloned()
                             .map(|line| (line, location.location_id))
                     })

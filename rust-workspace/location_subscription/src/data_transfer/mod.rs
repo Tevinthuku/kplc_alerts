@@ -32,7 +32,7 @@ pub struct LineWithScheduledInterruptionTime {
 }
 
 pub struct LocationDetails {
-    id: LocationId,
-    name: LocationName,
-    address: String,
+    pub id: LocationId,
+    pub name: LocationName,
+    pub address: String,
 }

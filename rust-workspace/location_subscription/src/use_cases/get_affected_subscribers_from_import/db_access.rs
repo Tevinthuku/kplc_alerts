@@ -3,7 +3,7 @@ use crate::data_transfer::{
 };
 use crate::db_access::DbAccess;
 use crate::save_and_search_for_locations::{AffectedLocation, SaveAndSearchLocations};
-use crate::use_cases::get_affected_subscribers::Region;
+use crate::use_cases::get_affected_subscribers_from_import::Region;
 use anyhow::Context;
 use entities::locations::LocationId;
 use entities::subscriptions::SubscriberId;
