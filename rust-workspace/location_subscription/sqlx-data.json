@@ -93,6 +93,26 @@
     },
     "query": "\n            SELECT id, external_api_response as \"value: Json<ResultWrapper>\" FROM location.locations WHERE external_id = $1\n            "
   },
+  "cf3014f2cc5ed6740c7baa4fd9af524f96f8c96b136097623004fd2eca939b88": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n               SELECT id FROM location.nearby_locations WHERE id = $1::uuid\n            "
+  },
   "d7af0872915dd66e1b78020e4af139921b1a256bf74dda88ade18d9ec70cbd92": {
     "describe": {
       "columns": [

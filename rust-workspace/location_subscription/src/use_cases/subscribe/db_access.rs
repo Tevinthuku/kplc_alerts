@@ -61,7 +61,7 @@ impl SubscriptionDbAccess {
     pub(crate) async fn are_nearby_locations_already_saved(
         &self,
         location: LocationId,
-    ) -> anyhow::Result<bool> {
+    ) -> anyhow::Result<Option<NearbyLocationId>> {
         self.save_and_search_for_locations
             .was_nearby_location_already_saved(location)
             .await

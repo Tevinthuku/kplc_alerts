@@ -22,6 +22,7 @@ impl From<AffectedLocation> for LocationMatchedAndLineSchedule {
                 line_name: value.line_matched.line_name,
                 from: value.line_matched.from,
                 to: value.line_matched.to,
+                source_url: value.line_matched.source_url,
             },
             location_id: value.location_id,
         }
@@ -60,7 +61,7 @@ impl AffectedSubscribersDbAccess {
 
         let result = subscribers
             .into_iter()
-            .map(|(subscriber, location_ids)| {
+            .flat_map(|(subscriber, location_ids)| {
                 let (directly_affected, potentially_affected): (Vec<_>, Vec<_>) = location_ids
                     .into_iter()
                     .filter_map(|location_id| {
@@ -81,7 +82,6 @@ impl AffectedSubscribersDbAccess {
                 )))
                 .collect::<HashMap<_, _>>()
             })
-            .flatten()
             .collect::<HashMap<_, _>>();
 
         let result = result

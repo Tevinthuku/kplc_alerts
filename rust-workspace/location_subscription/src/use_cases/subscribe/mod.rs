@@ -67,15 +67,7 @@ impl SubscribeInteractor {
             .await
             .map_err(SubscribeToLocationError::InternalError)?;
 
-        let already_saved = self
-            .db
-            .are_nearby_locations_already_saved(location_id)
-            .await
-            .map_err(SubscribeToLocationError::InternalError)?;
-
-        if !already_saved {
-            nearby_locations_search_and_save::execute(&location, &self.db).await?;
-        }
+        let _ = nearby_locations_search_and_save::execute(&location, &self.db).await?;
 
         let affected_location = self
             .db
@@ -98,20 +90,6 @@ impl SubscribeInteractor {
         });
 
         Ok(result)
-    }
-
-    async fn search_for_location_details_from_api_and_save(
-        &self,
-        external_id: ExternalLocationId,
-    ) -> Result<LocationWithCoordinates, SubscribeToLocationError> {
-        todo!()
-    }
-
-    async fn fetch_nearby_locations_from_api_and_save(
-        &self,
-        location: LocationWithCoordinates,
-    ) -> Result<(), SubscribeToLocationError> {
-        todo!()
     }
 }
 
@@ -244,6 +222,12 @@ mod nearby_locations_search_and_save {
         primary_location: &LocationWithCoordinates,
         db: &SubscriptionDbAccess,
     ) -> anyhow::Result<NearbyLocationId> {
+        let already_saved = db
+            .are_nearby_locations_already_saved(primary_location.location_id)
+            .await?;
+        if let Some(already_saved) = already_saved {
+            return Ok(already_saved);
+        }
         let url = generate_url(primary_location)?;
         let api_response = get_nearby_locations_from_api(url.clone()).await?;
         db.save_nearby_locations(url, primary_location.location_id, api_response)
