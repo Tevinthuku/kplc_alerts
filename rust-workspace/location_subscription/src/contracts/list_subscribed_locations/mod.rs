@@ -1,7 +1,7 @@
 mod db_access;
 
+use crate::contracts::list_subscribed_locations::db_access::SubscribedLocationsAccess;
 use crate::data_transfer::LocationDetails;
-use crate::use_cases::list_subscribed_locations::db_access::SubscribedLocationsAccess;
 use entities::subscriptions::SubscriberId;
 
 pub struct ListSubscribedLocationsInteractor;

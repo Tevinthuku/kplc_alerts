@@ -35,6 +35,7 @@ shared_kernel = { path = "../../shared_kernel" }
 use_cases = { path = "../../use_cases" }
 sqlx_postgres = { path = "../../storage/sqlx_postgres" }
 redis_client = { path = "../../storage/redis_client" }
+location_subscription = { path = "../../location_subscription" }
 
 
 [dependencies.uuid]

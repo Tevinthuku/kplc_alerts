@@ -1,6 +1,5 @@
 use crate::data_transfer::LineWithScheduledInterruptionTime;
 use crate::db_access::DbAccess;
-use crate::use_cases::get_affected_subscribers_from_import::Region;
 use anyhow::{anyhow, Context};
 use entities::locations::{ExternalLocationId, LocationId};
 use itertools::Itertools;
@@ -9,6 +8,7 @@ use regex::{Captures, Regex, RegexBuilder};
 use sqlx::types::Json;
 use std::collections::HashMap;
 
+use crate::contracts::get_affected_subscribers_from_import::Region;
 use entities::power_interruptions::location::{AreaName, NairobiTZDateTime, TimeFrame};
 use futures::{stream::FuturesUnordered, StreamExt};
 use serde::Deserialize;
@@ -633,10 +633,10 @@ mod potentially_affected_location {
 }
 
 mod affected_locations_in_an_area {
+    use crate::contracts::get_affected_subscribers_from_import::{Area, TimeFrame};
     use crate::data_transfer::LineWithScheduledInterruptionTime;
     use crate::db_access::DbAccess;
     use crate::save_and_search_for_locations::AffectedLocation;
-    use crate::use_cases::get_affected_subscribers_from_import::{Area, TimeFrame};
     use anyhow::Context;
     use entities::power_interruptions::location::AreaName;
     use futures::stream::FuturesUnordered;

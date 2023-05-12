@@ -1,7 +1,7 @@
 mod db_access;
 
+use crate::contracts::get_affected_subscribers_from_import::db_access::AffectedSubscribersDbAccess;
 use crate::data_transfer::{AffectedSubscriber, LocationMatchedAndLineSchedule};
-use crate::use_cases::get_affected_subscribers_from_import::db_access::AffectedSubscribersDbAccess;
 use entities::power_interruptions::location::NairobiTZDateTime;
 use std::collections::HashMap;
 use url::Url;

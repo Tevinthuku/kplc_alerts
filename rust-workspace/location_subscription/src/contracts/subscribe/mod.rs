@@ -5,12 +5,12 @@ use entities::locations::{ExternalLocationId, LocationId};
 use secrecy::ExposeSecret;
 
 use crate::config::SETTINGS_CONFIG;
+use crate::contracts::subscribe::db_access::SubscriptionDbAccess;
 use crate::data_transfer::{
     AffectedSubscriber, AffectedSubscriberWithLocationMatchedAndLineSchedule, LineScheduleId,
     LineWithScheduledInterruptionTime, LocationMatchedAndLineSchedule,
 };
 use crate::save_and_search_for_locations::{AffectedLocation, LocationWithCoordinates};
-use crate::use_cases::subscribe::db_access::SubscriptionDbAccess;
 use entities::power_interruptions::location::{NairobiTZDateTime, TimeFrame};
 use entities::subscriptions::SubscriberId;
 use shared_kernel::uuid_key;
@@ -95,8 +95,8 @@ impl SubscribeInteractor {
 
 mod main_location_search_and_save {
     use crate::config::SETTINGS_CONFIG;
+    use crate::contracts::subscribe::db_access::SubscriptionDbAccess;
     use crate::save_and_search_for_locations::{LocationInput, LocationWithCoordinates};
-    use crate::use_cases::subscribe::db_access::SubscriptionDbAccess;
     use anyhow::{anyhow, bail, Context};
     use entities::locations::ExternalLocationId;
     use secrecy::ExposeSecret;
@@ -172,8 +172,8 @@ mod main_location_search_and_save {
 
 mod nearby_locations_search_and_save {
     use crate::config::SETTINGS_CONFIG;
+    use crate::contracts::subscribe::db_access::SubscriptionDbAccess;
     use crate::save_and_search_for_locations::{LocationWithCoordinates, NearbyLocationId};
-    use crate::use_cases::subscribe::db_access::SubscriptionDbAccess;
     use anyhow::{bail, Context};
     use entities::locations::LocationId;
     use secrecy::ExposeSecret;
