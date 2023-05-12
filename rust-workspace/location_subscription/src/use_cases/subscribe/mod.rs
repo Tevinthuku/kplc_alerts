@@ -74,8 +74,7 @@ impl SubscribeInteractor {
             .map_err(SubscribeToLocationError::InternalError)?;
 
         if !already_saved {
-            self.fetch_nearby_locations_from_api_and_save(location)
-                .await?;
+            nearby_locations_search_and_save::execute(&location, &self.db).await?;
         }
 
         let affected_location = self
@@ -190,5 +189,64 @@ mod main_location_search_and_save {
         let url = generate_url(id)?;
         let location = get_place_details(url).await?;
         save_location_returning_id_and_coordinates(location, db).await
+    }
+}
+
+mod nearby_locations_search_and_save {
+    use crate::config::SETTINGS_CONFIG;
+    use crate::save_and_search_for_locations::{LocationWithCoordinates, NearbyLocationId};
+    use crate::use_cases::subscribe::db_access::SubscriptionDbAccess;
+    use anyhow::{bail, Context};
+    use entities::locations::LocationId;
+    use secrecy::ExposeSecret;
+    use serde::Deserialize;
+    use shared_kernel::http_client::HttpClient;
+    use sqlx_postgres::cache::location_search::StatusCode;
+    use url::Url;
+
+    fn generate_url(primary_location: &LocationWithCoordinates) -> anyhow::Result<Url> {
+        let nearby_locations_path = "/place/nearbysearch/json?rankby=distance";
+        let host = &SETTINGS_CONFIG.location.host;
+        Url::parse_with_params(
+            &format!("{}{}", host, nearby_locations_path),
+            &[
+                (
+                    "location",
+                    &format!(
+                        "{} {}",
+                        primary_location.latitude, primary_location.longitude
+                    ),
+                ),
+                ("key", SETTINGS_CONFIG.location.api_key.expose_secret()),
+            ],
+        )
+        .context("Failed to parse nearby_location URL")
+    }
+
+    async fn get_nearby_locations_from_api(url: Url) -> anyhow::Result<serde_json::Value> {
+        let raw_response = HttpClient::get_json::<serde_json::Value>(url).await?;
+
+        #[derive(Deserialize, Debug, Clone)]
+        struct Response {
+            status: StatusCode,
+        }
+
+        let response: Response = serde_json::from_value(raw_response.clone())
+            .with_context(|| format!("Invalid response {raw_response:?}"))?;
+
+        if response.status.is_cacheable() {
+            return Ok(raw_response);
+        }
+        bail!("Failed to get valid response {raw_response:?}")
+    }
+
+    pub(super) async fn execute(
+        primary_location: &LocationWithCoordinates,
+        db: &SubscriptionDbAccess,
+    ) -> anyhow::Result<NearbyLocationId> {
+        let url = generate_url(primary_location)?;
+        let api_response = get_nearby_locations_from_api(url.clone()).await?;
+        db.save_nearby_locations(url, primary_location.location_id, api_response)
+            .await
     }
 }

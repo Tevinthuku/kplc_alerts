@@ -10,8 +10,13 @@ use sqlx::types::Json;
 use std::collections::HashMap;
 
 use serde::Deserialize;
+use shared_kernel::uuid_key;
 use std::fmt::{Display, Formatter};
+use url::Url;
 use uuid::Uuid;
+
+uuid_key!(NearbyLocationId);
+
 lazy_static! {
     static ref ACRONYM_MAP: HashMap<String, &'static str> = HashMap::from([
         ("pri".to_string(), "Primary"),
@@ -254,5 +259,38 @@ impl SaveAndSearchLocations {
         .context("Failed to fetch nearby_locations")?;
 
         Ok(db_results.is_some())
+    }
+
+    pub(super) async fn save_nearby_locations(
+        &self,
+        url: Url,
+        primary_location: LocationId,
+        api_response: serde_json::Value,
+    ) -> anyhow::Result<NearbyLocationId> {
+        let pool = self.db_access.pool().await;
+        sqlx::query!(
+            "
+            INSERT INTO location.nearby_locations (source_url, location_id, response) 
+            VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
+            ",
+            url.to_string(),
+            primary_location.inner(),
+            Json(api_response) as _
+        )
+        .execute(pool.as_ref())
+        .await
+        .with_unexpected_err(|| "Failed to insert nearby_locations")?;
+
+        let record = sqlx::query!(
+            r#"
+            SELECT id FROM location.nearby_locations WHERE source_url = $1
+            "#,
+            url.to_string()
+        )
+        .fetch_one(pool.as_ref())
+        .await
+        .with_unexpected_err(|| "Failed to fetch the nearby_location by id")?;
+
+        Ok(record.id.into())
     }
 }

@@ -3,13 +3,15 @@ use crate::data_transfer::{
 };
 use crate::db_access::DbAccess;
 use crate::save_and_search_for_locations::{
-    AffectedLocation, LocationInput, LocationWithCoordinates, SaveAndSearchLocations,
+    AffectedLocation, LocationInput, LocationWithCoordinates, NearbyLocationId,
+    SaveAndSearchLocations,
 };
 use anyhow::Context;
 use entities::locations::{ExternalLocationId, LocationId};
 use entities::subscriptions::SubscriberId;
 use serde::Deserialize;
 use sqlx::types::Json;
+use url::Url;
 use uuid::Uuid;
 
 pub(crate) struct SubscriptionDbAccess {
@@ -77,6 +79,17 @@ impl SubscriptionDbAccess {
     pub async fn save_main_location(&self, input: LocationInput) -> anyhow::Result<LocationId> {
         self.save_and_search_for_locations
             .save_main_location(input)
+            .await
+    }
+
+    pub(super) async fn save_nearby_locations(
+        &self,
+        url: Url,
+        primary_location: LocationId,
+        api_response: serde_json::Value,
+    ) -> anyhow::Result<NearbyLocationId> {
+        self.save_and_search_for_locations
+            .save_nearby_locations(url, primary_location, api_response)
             .await
     }
 }
