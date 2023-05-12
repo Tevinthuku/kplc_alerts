@@ -17,6 +17,7 @@ itertools = "0.10.5"
 sqlx = { version = "0.6", features = [ "offline", "runtime-tokio-native-tls" , "postgres", "uuid", "time", "chrono", "json" ] }
 async_once = "0.2.6"
 lazy_static = "1.4.0"
+regex = "1.7.1"
 
 shared_kernel = { path = "../shared_kernel" }
 entities = { path = "../entities" }
