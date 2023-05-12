@@ -1,5 +1,19 @@
 {
   "db": "PostgreSQL",
+  "0d9d866acbe9023633e6bb05833fe235f07662ea05a93918e694849c8113ce16": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Uuid",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO location.nearby_locations (source_url, location_id, response) \n            VALUES ($1, $2, $3) ON CONFLICT DO NOTHING\n            "
+  },
   "11b4823b9e2d3c95df0746830c2a91e63505d45c70500e0311fa22704bb12d36": {
     "describe": {
       "columns": [],
@@ -78,6 +92,26 @@
       }
     },
     "query": "\n            SELECT id, external_api_response as \"value: Json<ResultWrapper>\" FROM location.locations WHERE external_id = $1\n            "
+  },
+  "d7af0872915dd66e1b78020e4af139921b1a256bf74dda88ade18d9ec70cbd92": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            SELECT id FROM location.nearby_locations WHERE source_url = $1\n            "
   },
   "e13fced71b43c2f6abf8ab9652539fc2e4b3ae38da844d494e682cef9c6035af": {
     "describe": {

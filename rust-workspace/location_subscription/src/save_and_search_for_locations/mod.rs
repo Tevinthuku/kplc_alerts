@@ -279,7 +279,7 @@ impl SaveAndSearchLocations {
         )
         .execute(pool.as_ref())
         .await
-        .with_unexpected_err(|| "Failed to insert nearby_locations")?;
+        .context("Failed to insert nearby_locations")?;
 
         let record = sqlx::query!(
             r#"
@@ -289,7 +289,7 @@ impl SaveAndSearchLocations {
         )
         .fetch_one(pool.as_ref())
         .await
-        .with_unexpected_err(|| "Failed to fetch the nearby_location by id")?;
+        .context("Failed to fetch the nearby_location by id")?;
 
         Ok(record.id.into())
     }
