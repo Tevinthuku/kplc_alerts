@@ -776,8 +776,8 @@ mod affected_locations_in_an_area {
                         location_id: location.id.into(),
                         line_matched: LineWithScheduledInterruptionTime {
                             line_name: original_candidate.to_string(),
-                            from: time_frame.from.clone(),
-                            to: time_frame.to.clone(),
+                            from: time_frame.from.as_ref().clone(),
+                            to: time_frame.to.as_ref().clone(),
                             source_url: source.clone(),
                         },
                         is_directly_affected: false,
@@ -837,7 +837,7 @@ mod affected_locations_in_an_area {
             .collect::<HashMap<_, _>>();
 
         let mapping_of_searcheable_candidate_to_candidate =
-            mapping_of_searcheable_candidate_to_original_candidate
+            mapping_of_searcheable_location_candidate_to_candidate_copy
                 .into_iter()
                 .map(|(searcheable_candidate, original_candidate)| {
                     (searcheable_candidate.to_string(), original_candidate)
@@ -859,8 +859,8 @@ mod affected_locations_in_an_area {
                         location_id: location.into(),
                         line_matched: LineWithScheduledInterruptionTime {
                             line_name: line.to_string(),
-                            from: time_frame.from.clone(),
-                            to: time_frame.to.clone(),
+                            from: time_frame.from.as_ref().clone(),
+                            to: time_frame.to.as_ref().clone(),
                             source_url: source.clone(),
                         },
                         is_directly_affected: false,
@@ -877,7 +877,7 @@ mod affected_locations_in_an_area {
     ) -> Vec<AffectedLocation> {
         let directly_affected_location_keys = directly_affected_locations
             .iter()
-            .map(|location| AffectedLocationKey::new(location))
+            .map(AffectedLocationKey::new)
             .collect::<HashSet<_>>();
         let potentially_affected_locations = potentially_affected_locations
             .into_iter()

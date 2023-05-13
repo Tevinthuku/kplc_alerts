@@ -2,7 +2,7 @@ mod db_access;
 
 use crate::contracts::get_affected_subscribers_from_import::db_access::AffectedSubscribersDbAccess;
 use crate::data_transfer::{AffectedSubscriber, LocationMatchedAndLineSchedule};
-use entities::power_interruptions::location::NairobiTZDateTime;
+use entities::power_interruptions::location::{FutureOrCurrentNairobiTZDateTime, NairobiTZDateTime};
 use std::collections::HashMap;
 use url::Url;
 
@@ -10,8 +10,8 @@ pub struct AffectedSubscribersInteractor;
 
 #[derive(Debug, Clone)]
 pub struct TimeFrame {
-    pub from: NairobiTZDateTime,
-    pub to: NairobiTZDateTime,
+    pub from: FutureOrCurrentNairobiTZDateTime,
+    pub to: FutureOrCurrentNairobiTZDateTime,
 }
 
 #[derive(Debug)]
