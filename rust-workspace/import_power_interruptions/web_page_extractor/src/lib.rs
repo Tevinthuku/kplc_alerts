@@ -61,7 +61,7 @@ impl WebPageExtractor {
     async fn get_pdf_links(&self) -> anyhow::Result<Vec<Url>> {
         lazy_static! {
             static ref PDF_LINKS_REGEX: Regex =
-                Regex::new(r"https://.*kplc\.co\.ke/img/full/.*\.pdf")
+                Regex::new(r#""https://.*kplc\.co\.ke/img/full/.*\.pdf""#)
                     .expect("PDF_LINKS_REGEX to compile");
         }
 
@@ -71,7 +71,10 @@ impl WebPageExtractor {
         let urls = PDF_LINKS_REGEX
             .find_iter(&page_content)
             .into_iter()
-            .map(|a_match| Url::parse(a_match.as_str()))
+            .map(|a_match| {
+                let link = a_match.as_str().replace('\"', "");
+                Url::parse(link.as_str())
+            })
             .collect::<Result<Vec<_>, _>>()
             .context("Invalid URL")?;
 
