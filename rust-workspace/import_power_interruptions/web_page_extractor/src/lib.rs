@@ -15,7 +15,6 @@ use shared_kernel::http_client::HttpClient;
 use url::Url;
 
 pub struct WebPageExtractor {
-    importer: Arc<dyn ImportPlannedBlackoutsInteractor>,
     file_operations: Arc<dyn FileOperations>,
     pdf_reader: Arc<dyn PdfExtractor>,
 }
@@ -32,17 +31,15 @@ pub trait PdfExtractor: Send + Sync {
 
 impl WebPageExtractor {
     pub fn new(
-        importer: Arc<dyn ImportPlannedBlackoutsInteractor>,
         file_operations: Arc<dyn FileOperations>,
         pdf_reader: Arc<dyn PdfExtractor>,
     ) -> Self {
         Self {
-            importer,
             file_operations,
             pdf_reader,
         }
     }
-    pub async fn run(&self, actor: &dyn Actor) -> anyhow::Result<()> {
+    pub async fn run(&self, actor: &dyn Actor) -> anyhow::Result<ImportInput> {
         let pdf_links = self.get_pdf_links().await?;
 
         let unprocessed_files = self
@@ -52,7 +49,7 @@ impl WebPageExtractor {
 
         let result = self.pdf_reader.extract(unprocessed_files.clone()).await?;
 
-        self.importer.import(actor, ImportInput(result)).await
+        Ok(ImportInput(result))
     }
 
     async fn get_page_contents(&self) -> anyhow::Result<String> {

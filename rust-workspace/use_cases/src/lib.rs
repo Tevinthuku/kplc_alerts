@@ -70,15 +70,9 @@ impl App for AppImpl {
     }
 }
 
-pub trait LocationsApi:
-    LocationSearchApi + LocationSubscriber + GetPreferredDeliveryStrategies
-{
-}
+pub trait LocationsApi: LocationSearchApi + LocationSubscriber {}
 
-impl<T> LocationsApi for T where
-    T: LocationSearchApi + LocationSubscriber + GetPreferredDeliveryStrategies
-{
-}
+impl<T> LocationsApi for T where T: LocationSearchApi + LocationSubscriber {}
 
 impl AppImpl {
     pub fn new<R: Repository + 'static, L: LocationsApi + 'static>(
@@ -100,10 +94,7 @@ impl AppImpl {
             location_api.clone(),
         );
 
-        let notification = Arc::new(Notifier::new(repository.clone(), location_api));
-
-        let import_planned_blackouts_interactor =
-            ImportAffectedAreas::new(repository.clone(), notification);
+        let import_planned_blackouts_interactor = ImportAffectedAreas::new(repository.clone());
 
         let locations_subscribed_to_interactor = ListSubscribedLocationsImpl::new(
             repository.clone(),
