@@ -1,19 +1,10 @@
-pub mod db;
-
-use anyhow::Context;
 use celery::export::async_trait;
 use celery::prelude::*;
 use entities::locations::ExternalLocationId;
-use itertools::Itertools;
 
 use entities::subscriptions::SubscriberId;
-use secrecy::ExposeSecret;
-use shared_kernel::http_client::HttpClient;
-use url::Url;
 
-use crate::{
-    send_notifications::email::send_email_notification, utils::get_token::get_location_token,
-};
+use crate::send_notifications::email::send_email_notification;
 
 use notifications::contracts::send_notification::LocationMatchedAndLineSchedule as NotificationLocationMatchedAndLineSchedule;
 use notifications::contracts::send_notification::{
@@ -23,15 +14,11 @@ use notifications::contracts::send_notification::{
 use location_subscription::contracts::subscribe::SubscribeToLocationError;
 use location_subscription::data_transfer::AffectedSubscriber;
 use notifications::contracts::send_notification::AffectedSubscriberWithLocations;
-use serde::Deserialize;
 
-use sqlx_postgres::cache::location_search::StatusCode;
 use use_cases::subscriber_locations::subscribe_to_location::TaskId;
 
+use crate::utils::callbacks::failure_callback;
 use crate::utils::progress_tracking::{set_progress_status, TaskStatus};
-use crate::{configuration::SETTINGS_CONFIG, utils::callbacks::failure_callback};
-
-use self::db::DB;
 
 #[celery::task(max_retries = 200, bind = true, retry_for_unexpected = false, on_failure = failure_callback)]
 pub async fn fetch_and_subscribe_to_location(
@@ -57,9 +44,7 @@ pub async fn fetch_and_subscribe_to_location(
             SubscribeToLocationError::InternalError(err) => {
                 TaskError::UnexpectedError(err.to_string())
             }
-            SubscribeToLocationError::ExpectedError(err) => {
-                TaskError::ExpectedError(err.to_string())
-            }
+            SubscribeToLocationError::ExpectedError(err) => TaskError::ExpectedError(err),
         })?;
 
     if let Some(affected_subscriber) = affected_subscriber {

@@ -1,4 +1,3 @@
-pub mod affected_subscribers;
 mod authentication;
 pub mod cache;
 pub mod configuration;

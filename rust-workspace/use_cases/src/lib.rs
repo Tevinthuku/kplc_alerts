@@ -1,6 +1,5 @@
 use authentication::subscriber_authentication::SubscriberResolverInteractorImpl;
-use import_affected_areas::{ImportAffectedAreas, ImportPlannedBlackoutsInteractor};
-use notifications::notify_subscribers::{GetPreferredDeliveryStrategies, Notifier};
+
 use search_for_locations::{
     LocationSearchApi, LocationSearchInteractor, LocationSearchInteractorImpl,
 };
@@ -34,7 +33,6 @@ pub trait App {
     fn subscribe_to_location(&self) -> &dyn SubscribeToLocationInteractor;
     fn list_locations_subcribed_to(&self) -> &dyn ListSubscribedLocationsInteractor;
     fn delete_subscribed_location(&self) -> &dyn DeleteLocationsSubscribedToInteractor;
-    fn import_planned_blackouts(&self) -> &dyn ImportPlannedBlackoutsInteractor;
 }
 
 pub struct AppImpl {
@@ -43,7 +41,6 @@ pub struct AppImpl {
     locations_subscribed_to_interactor: Arc<dyn ListSubscribedLocationsInteractor>,
     subscribe_to_location_interactor: Arc<dyn SubscribeToLocationInteractor>,
     delete_subscribed_location: Arc<dyn DeleteLocationsSubscribedToInteractor>,
-    import_planned_blackouts_interactor: Arc<dyn ImportPlannedBlackoutsInteractor>,
 }
 
 impl App for AppImpl {
@@ -61,10 +58,6 @@ impl App for AppImpl {
 
     fn list_locations_subcribed_to(&self) -> &dyn ListSubscribedLocationsInteractor {
         self.locations_subscribed_to_interactor.as_ref()
-    }
-
-    fn import_planned_blackouts(&self) -> &dyn ImportPlannedBlackoutsInteractor {
-        self.import_planned_blackouts_interactor.as_ref()
     }
 
     fn delete_subscribed_location(&self) -> &dyn DeleteLocationsSubscribedToInteractor {
@@ -94,7 +87,7 @@ impl AppImpl {
         let location_api = Arc::new(location_api);
         let subscriber_authentication_checker =
             Arc::new(SubscriberResolverInteractorImpl::new(repository.clone()));
-        let authentication_interactor = AuthenticationInteractorImpl::new(repository.clone());
+        let authentication_interactor = AuthenticationInteractorImpl::new(repository);
         let location_searcher_interactor = LocationSearchInteractorImpl::new(
             location_api.clone(),
             subscriber_authentication_checker.clone(),
@@ -103,7 +96,6 @@ impl AppImpl {
         let subscribe_to_locations_interactor =
             SubscribeToLocationImpl::new(subscriber_authentication_checker.clone(), location_api);
 
-        let import_planned_blackouts_interactor = ImportAffectedAreas::new(repository.clone());
         let location_subscription = Arc::new(location_subscription_operations);
         let locations_subscribed_to_interactor = ListSubscribedLocationsImpl::new(
             location_subscription.clone(),
@@ -121,7 +113,6 @@ impl AppImpl {
             location_searcher_interactor: Arc::new(location_searcher_interactor),
             subscribe_to_location_interactor: Arc::new(subscribe_to_locations_interactor),
             delete_subscribed_location: Arc::new(delete_subscribed_locations),
-            import_planned_blackouts_interactor: Arc::new(import_planned_blackouts_interactor),
         }
     }
 }

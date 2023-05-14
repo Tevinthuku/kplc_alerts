@@ -1,6 +1,6 @@
 mod db_access;
 
-use entities::locations::{ExternalLocationId, LocationId};
+use entities::locations::{LocationId};
 use entities::subscriptions::SubscriberId;
 
 pub struct UnsubscribeFromLocationInteractor;

@@ -1,21 +1,20 @@
 mod db_access;
 
-use anyhow::Context;
-use entities::locations::{ExternalLocationId, LocationId};
-use secrecy::ExposeSecret;
 
-use crate::config::SETTINGS_CONFIG;
+use entities::locations::{ExternalLocationId};
+
+
+
 use crate::contracts::subscribe::db_access::SubscriptionDbAccess;
 use crate::data_transfer::{
-    AffectedSubscriber, AffectedSubscriberWithLocationMatchedAndLineSchedule, LineScheduleId,
-    LineWithScheduledInterruptionTime, LocationMatchedAndLineSchedule,
+    AffectedSubscriber, AffectedSubscriberWithLocationMatchedAndLineSchedule, LocationMatchedAndLineSchedule,
 };
-use crate::save_and_search_for_locations::{AffectedLocation, LocationWithCoordinates};
-use entities::power_interruptions::location::{NairobiTZDateTime, TimeFrame};
+
+
 use entities::subscriptions::SubscriberId;
-use shared_kernel::uuid_key;
+
 use thiserror::Error;
-use url::Url;
+
 
 #[derive(Error, Debug)]
 pub enum SubscribeToLocationError {
@@ -176,7 +175,7 @@ mod nearby_locations_search_and_save {
     use crate::contracts::subscribe::db_access::SubscriptionDbAccess;
     use crate::save_and_search_for_locations::{LocationWithCoordinates, NearbyLocationId};
     use anyhow::{bail, Context};
-    use entities::locations::LocationId;
+    
     use secrecy::ExposeSecret;
     use serde::Deserialize;
     use shared_kernel::http_client::HttpClient;

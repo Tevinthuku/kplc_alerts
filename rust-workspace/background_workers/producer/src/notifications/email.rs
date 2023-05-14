@@ -2,7 +2,7 @@ use crate::notifications::DeliveryStrategy;
 use anyhow::bail;
 use async_trait::async_trait;
 use celery::Celery;
-use entities::notifications::Notification;
+
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use notifications::contracts::send_notification::AffectedSubscriberWithLocations;

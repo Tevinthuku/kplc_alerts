@@ -14,7 +14,6 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use serde::Deserialize;
 use shared_kernel::uuid_key;
 use sqlx::types::chrono::{DateTime, Utc};
-use sqlx_postgres::affected_subscribers::SearcheableCandidate;
 use std::fmt::{Display, Formatter};
 use url::Url;
 use uuid::Uuid;
@@ -76,6 +75,41 @@ impl Display for NonAcronymString {
 impl AsRef<str> for NonAcronymString {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+pub struct SearcheableCandidate(String);
+
+impl ToString for SearcheableCandidate {
+    fn to_string(&self) -> String {
+        self.0.clone()
+    }
+}
+
+impl AsRef<str> for SearcheableCandidate {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl SearcheableCandidate {
+    pub fn from_area_name(area: &AreaName) -> Vec<Self> {
+        area.as_ref()
+            .split(',')
+            .map(SearcheableCandidate::from)
+            .collect_vec()
+    }
+
+    // pub fn original_value(&self) -> String {
+    //     self.0.replace(" <-> ", " ")
+    // }
+}
+
+impl From<&str> for SearcheableCandidate {
+    fn from(value: &str) -> Self {
+        let value = value.trim().replace(' ', " <-> ");
+        SearcheableCandidate(value)
     }
 }
 
@@ -458,12 +492,16 @@ mod directly_affected_location {
     use entities::locations::LocationId;
     use entities::power_interruptions::location::AreaName;
     use itertools::Itertools;
-    use sqlx_postgres::affected_subscribers::SearcheableCandidate;
     use uuid::Uuid;
+
+    use super::SearcheableCandidate;
+
     #[derive(sqlx::FromRow, Debug)]
     struct DbLocationSearchResults {
         pub search_query: String,
+        #[allow(dead_code)]
         pub location: String,
+        #[allow(dead_code)]
         pub id: Uuid,
     }
     pub(super) async fn execute(
@@ -473,7 +511,7 @@ mod directly_affected_location {
         let results = BareAffectedLine::lines_affected_in_the_future(db).await?;
         for (area_name, affected_lines) in results.iter() {
             let affected_location =
-                directly_affected_location(db, location_id, area_name, &affected_lines).await?;
+                directly_affected_location(db, location_id, area_name, affected_lines).await?;
             if let Some(affected_location) = affected_location {
                 return Ok(Some(affected_location));
             }
@@ -528,7 +566,6 @@ mod directly_affected_location {
                     )
                 })
         {
-            println!("{searcheable_candidates:?} {location_id:?} {searcheable_area:?}");
             let location = sqlx::query_as::<_, DbLocationSearchResults>(
                 "
                     SELECT * FROM location.search_specific_location_primary_text($1::text[], $2::uuid, $3::text)
@@ -550,14 +587,13 @@ mod directly_affected_location {
 }
 
 mod potentially_affected_location {
-    use crate::db_access::DbAccess;
     use crate::save_and_search_for_locations::{
         AffectedLocation, AffectedLocationGenerator, BareAffectedLine, NearbyLocationId,
     };
+    use crate::{db_access::DbAccess, save_and_search_for_locations::SearcheableCandidate};
     use anyhow::Context;
     use entities::locations::LocationId;
     use itertools::Itertools;
-    use sqlx_postgres::affected_subscribers::SearcheableCandidate;
     use std::iter;
     use uuid::Uuid;
 
@@ -574,7 +610,7 @@ mod potentially_affected_location {
                     iter::once(BareAffectedLine {
                         line: area.to_string(),
                         url: line.url.clone(),
-                        time_frame: line.time_frame.clone(),
+                        time_frame: line.time_frame,
                     })
                     .chain(affected_lines.into_iter())
                 })
@@ -645,14 +681,16 @@ mod affected_locations_in_an_area {
     use futures::stream::FuturesUnordered;
     use futures::StreamExt;
     use itertools::Itertools;
-    use sqlx_postgres::affected_subscribers::SearcheableCandidate;
     use std::collections::{HashMap, HashSet};
     use url::Url;
     use uuid::Uuid;
 
-    #[derive(sqlx::FromRow, Debug)]
+    use super::SearcheableCandidate;
+
+    #[derive(sqlx::FromRow)]
     struct DbLocationSearchResults {
         pub search_query: String,
+        #[allow(dead_code)]
         pub location: String,
         pub id: Uuid,
     }
@@ -743,7 +781,7 @@ mod affected_locations_in_an_area {
         let pool = db.pool().await;
 
         let mut futures: FuturesUnordered<_> = searcheable_area_names
-            .into_iter()
+            .iter()
             .map(|area_name| {
                 sqlx::query_as::<_, DbLocationSearchResults>(
                     "
@@ -804,12 +842,12 @@ mod affected_locations_in_an_area {
         let searcheable_candidates = searcheable_area_names
             .iter()
             .map(|name| name.to_string())
-            .chain(searcheable_candidates.into_iter().map(ToString::to_string))
+            .chain(searcheable_candidates.iter().map(ToString::to_string))
             .collect_vec();
 
         let mapping_of_searcheable_location_candidate_to_candidate_copy =
             mapping_of_searcheable_candidate_to_original_candidate
-                .into_iter()
+                .iter()
                 .map(|(candidate, original_value)| (candidate, original_value.to_owned()))
                 .chain(
                     searcheable_area_names

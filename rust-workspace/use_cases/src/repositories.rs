@@ -2,17 +2,10 @@ use crate::authentication::{
     subscriber_authentication::SubscriberResolverRepo, SubscriberAuthenticationRepo,
 };
 
-use crate::{
-    import_affected_areas::SaveBlackoutAffectedAreasRepo,
-    notifications::notify_subscribers::SubscriberRepo,
-};
+use crate::import_affected_areas::SaveBlackoutAffectedAreasRepo;
 
 pub trait Repository:
-    SubscriberAuthenticationRepo
-    + SaveBlackoutAffectedAreasRepo
-    + SubscriberResolverRepo
-    + SubscriberRepo
-    + Clone
+    SubscriberAuthenticationRepo + SaveBlackoutAffectedAreasRepo + SubscriberResolverRepo + Clone
 {
 }
 
@@ -21,6 +14,5 @@ impl<T> Repository for T where
         + SubscriberAuthenticationRepo
         + SaveBlackoutAffectedAreasRepo
         + SubscriberResolverRepo
-        + SubscriberRepo
 {
 }

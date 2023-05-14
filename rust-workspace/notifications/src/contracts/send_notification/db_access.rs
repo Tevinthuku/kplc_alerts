@@ -1,6 +1,6 @@
 use crate::contracts::send_notification::{AffectedSubscriber, LocationMatchedAndLineSchedule};
 use crate::db_access::{DbAccess, SourceId};
-use entities::subscriptions::SubscriberId;
+
 use itertools::Itertools;
 use shared_kernel::uuid_key;
 use url::Url;

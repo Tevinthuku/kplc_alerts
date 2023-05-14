@@ -12,7 +12,7 @@ pub struct PoolWrapper<'a>(&'a PgPool);
 
 impl<'a> AsRef<PgPool> for PoolWrapper<'a> {
     fn as_ref(&self) -> &'a PgPool {
-        &self.0
+        self.0
     }
 }
 

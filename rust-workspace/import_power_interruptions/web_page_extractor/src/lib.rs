@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use std::sync::Arc;
 use use_cases::actor::Actor;
-use use_cases::import_affected_areas::{ImportInput, ImportPlannedBlackoutsInteractor, Region};
+use use_cases::import_affected_areas::{ImportInput, Region};
 
 use regex::Regex;
 use shared_kernel::http_client::HttpClient;
@@ -39,7 +39,7 @@ impl WebPageExtractor {
             pdf_reader,
         }
     }
-    pub async fn run(&self, actor: &dyn Actor) -> anyhow::Result<ImportInput> {
+    pub async fn run(&self, _actor: &dyn Actor) -> anyhow::Result<ImportInput> {
         let pdf_links = self.get_pdf_links().await?;
 
         let unprocessed_files = self

@@ -1,6 +1,4 @@
-use crate::data_transfer::{
-    AffectedSubscriberWithLocationMatchedAndLineSchedule, LocationMatchedAndLineSchedule,
-};
+
 use crate::db_access::DbAccess;
 use crate::save_and_search_for_locations::{
     AffectedLocation, LocationInput, LocationWithCoordinates, NearbyLocationId,
@@ -9,10 +7,10 @@ use crate::save_and_search_for_locations::{
 use anyhow::Context;
 use entities::locations::{ExternalLocationId, LocationId};
 use entities::subscriptions::SubscriberId;
-use serde::Deserialize;
-use sqlx::types::Json;
+
+
 use url::Url;
-use uuid::Uuid;
+
 
 pub(crate) struct SubscriptionDbAccess {
     db: DbAccess,

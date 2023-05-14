@@ -1,11 +1,11 @@
 use crate::contracts::send_notification::db_access::{
     Notification, NotificationStrategyId, SendNotificationsDbAccess,
 };
-use crate::contracts::send_notification::AffectedSubscriberWithLocations;
+
 use crate::db_access::{DbAccess, SourceId};
 use anyhow::Context;
 use url::Url;
-use uuid::Uuid;
+
 
 pub struct EmailNotificationsDbAccess {
     db_access: SendNotificationsDbAccess,
