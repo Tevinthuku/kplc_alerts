@@ -16,6 +16,7 @@ use subscriber_locations::{
 
 use crate::authentication::{AuthenticationInteractor, AuthenticationInteractorImpl};
 use crate::repositories::Repository;
+use crate::subscriber_locations::delete_locations_subscribed_to::DeleteSubscribedLocationOp;
 use std::sync::Arc;
 
 pub mod actor;
@@ -71,13 +72,16 @@ impl App for AppImpl {
 }
 
 pub trait LocationsApi: LocationSearchApi + LocationSubscriber {}
-
 impl<T> LocationsApi for T where T: LocationSearchApi + LocationSubscriber {}
+
+pub trait LocationSubscriptionOperations: DeleteSubscribedLocationOp {}
+impl<T> LocationSubscriptionOperations for T where T: DeleteSubscribedLocationOp {}
 
 impl AppImpl {
     pub fn new<R: Repository + 'static, L: LocationsApi + 'static>(
         repo: R,
         location_api: L,
+        location_subscription_operations: impl LocationSubscriptionOperations + 'static,
     ) -> Self {
         let repository = Arc::new(repo);
         let location_api = Arc::new(location_api);
@@ -89,20 +93,20 @@ impl AppImpl {
             subscriber_authentication_checker.clone(),
         );
 
-        let subscribe_to_locations_interactor = SubscribeToLocationImpl::new(
-            subscriber_authentication_checker.clone(),
-            location_api.clone(),
-        );
+        let subscribe_to_locations_interactor =
+            SubscribeToLocationImpl::new(subscriber_authentication_checker.clone(), location_api);
 
         let import_planned_blackouts_interactor = ImportAffectedAreas::new(repository.clone());
-
+        let location_subscription = Arc::new(location_subscription_operations);
         let locations_subscribed_to_interactor = ListSubscribedLocationsImpl::new(
             repository.clone(),
             subscriber_authentication_checker.clone(),
         );
 
-        let delete_subscribed_locations =
-            DeleteLocationsSubscribedToImpl::new(repository, subscriber_authentication_checker);
+        let delete_subscribed_locations = DeleteLocationsSubscribedToImpl::new(
+            subscriber_authentication_checker,
+            location_subscription,
+        );
 
         Self {
             authentication: Arc::new(authentication_interactor),

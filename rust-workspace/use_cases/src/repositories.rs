@@ -2,10 +2,7 @@ use crate::{
     authentication::{
         subscriber_authentication::SubscriberResolverRepo, SubscriberAuthenticationRepo,
     },
-    subscriber_locations::{
-        delete_locations_subscribed_to::DeleteSubscribedLocationsRepo,
-        list_subscribed_locations::LocationsSubscribedRepo,
-    },
+    subscriber_locations::list_subscribed_locations::LocationsSubscribedRepo,
 };
 
 use crate::{
@@ -19,7 +16,6 @@ pub trait Repository:
     + SubscriberResolverRepo
     + SubscriberRepo
     + LocationsSubscribedRepo
-    + DeleteSubscribedLocationsRepo
     + Clone
 {
 }
@@ -30,7 +26,6 @@ impl<T> Repository for T where
         + SaveBlackoutAffectedAreasRepo
         + SubscriberResolverRepo
         + LocationsSubscribedRepo
-        + DeleteSubscribedLocationsRepo
         + SubscriberRepo
 {
 }
