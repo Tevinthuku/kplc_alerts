@@ -25,7 +25,7 @@ pub struct AffectedSubscriberWithLocationMatchedAndLineSchedule {
     pub location_matched: LocationMatchedAndLineSchedule,
 }
 
-#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize, Debug)]
 pub struct LineWithScheduledInterruptionTime {
     pub line_name: String,
     pub from: NairobiTZDateTime,

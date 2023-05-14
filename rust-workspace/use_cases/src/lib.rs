@@ -17,6 +17,7 @@ use subscriber_locations::{
 use crate::authentication::{AuthenticationInteractor, AuthenticationInteractorImpl};
 use crate::repositories::Repository;
 use crate::subscriber_locations::delete_locations_subscribed_to::DeleteSubscribedLocationOp;
+use crate::subscriber_locations::list_subscribed_locations::ListSubscribedLocationsOp;
 use std::sync::Arc;
 
 pub mod actor;
@@ -74,8 +75,14 @@ impl App for AppImpl {
 pub trait LocationsApi: LocationSearchApi + LocationSubscriber {}
 impl<T> LocationsApi for T where T: LocationSearchApi + LocationSubscriber {}
 
-pub trait LocationSubscriptionOperations: DeleteSubscribedLocationOp {}
-impl<T> LocationSubscriptionOperations for T where T: DeleteSubscribedLocationOp {}
+pub trait LocationSubscriptionOperations:
+    DeleteSubscribedLocationOp + ListSubscribedLocationsOp
+{
+}
+impl<T> LocationSubscriptionOperations for T where
+    T: DeleteSubscribedLocationOp + ListSubscribedLocationsOp
+{
+}
 
 impl AppImpl {
     pub fn new<R: Repository + 'static, L: LocationsApi + 'static>(
@@ -99,7 +106,7 @@ impl AppImpl {
         let import_planned_blackouts_interactor = ImportAffectedAreas::new(repository.clone());
         let location_subscription = Arc::new(location_subscription_operations);
         let locations_subscribed_to_interactor = ListSubscribedLocationsImpl::new(
-            repository.clone(),
+            location_subscription.clone(),
             subscriber_authentication_checker.clone(),
         );
 

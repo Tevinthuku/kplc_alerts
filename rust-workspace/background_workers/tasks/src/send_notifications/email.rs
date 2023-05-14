@@ -35,7 +35,6 @@ pub async fn send_email_notification(
     data: AffectedSubscriberWithLocations,
 ) -> TaskResult<()> {
     let token_count = get_email_token().await?;
-
     if token_count < 0 {
         return Task::retry_with_countdown(task, 1);
     }

@@ -83,7 +83,7 @@ pub struct SaveAndSearchLocations {
     db_access: DbAccess,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LocationInput {
     pub name: String,
     pub external_id: ExternalLocationId,
@@ -91,7 +91,7 @@ pub struct LocationInput {
     pub api_response: serde_json::Value,
 }
 
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct AffectedLocation {
     pub location_id: LocationId,
     pub line_matched: LineWithScheduledInterruptionTime,
@@ -496,6 +496,8 @@ mod directly_affected_location {
             get_primary_location_search_result(location_id, area_name, db, searcheable_candidates)
                 .await?;
 
+        println!("{primary_location:?}");
+
         if let Some(location) = primary_location {
             let affected_location = AffectedLocationGenerator { affected_lines }.generate(
                 location.search_query,
@@ -526,6 +528,7 @@ mod directly_affected_location {
                     )
                 })
         {
+            println!("{searcheable_candidates:?} {location_id:?} {searcheable_area:?}");
             let location = sqlx::query_as::<_, DbLocationSearchResults>(
                 "
                     SELECT * FROM location.search_specific_location_primary_text($1::text[], $2::uuid, $3::text)
@@ -597,7 +600,7 @@ mod potentially_affected_location {
 
         let nearby_location_id = sqlx::query!(
             "
-               SELECT id FROM location.nearby_locations WHERE id = $1::uuid
+               SELECT id FROM location.nearby_locations WHERE location_id = $1::uuid
             ",
             location_id
         )

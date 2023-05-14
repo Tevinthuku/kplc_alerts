@@ -74,7 +74,7 @@ impl SubscribeInteractor {
             .is_location_affected(location_id)
             .await
             .map_err(SubscribeToLocationError::InternalError)?;
-
+        
         let result = affected_location.map(|location| {
             let affected_subscriber = match location.is_directly_affected {
                 true => AffectedSubscriber::DirectlyAffected(subscriber_id),
@@ -166,6 +166,7 @@ mod main_location_search_and_save {
     ) -> anyhow::Result<LocationWithCoordinates> {
         let url = generate_url(id)?;
         let location = get_place_details(url).await?;
+        println!("{location:?}");
         save_location_returning_id_and_coordinates(location, db).await
     }
 }
@@ -225,6 +226,7 @@ mod nearby_locations_search_and_save {
         let already_saved = db
             .are_nearby_locations_already_saved(primary_location.location_id)
             .await?;
+        println!("{already_saved:?}");
         if let Some(already_saved) = already_saved {
             return Ok(already_saved);
         }

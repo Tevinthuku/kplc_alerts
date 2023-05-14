@@ -2,6 +2,10 @@ use async_trait::async_trait;
 use entities::locations::LocationId;
 use entities::subscriptions::SubscriberId;
 use use_cases::subscriber_locations::delete_locations_subscribed_to::DeleteSubscribedLocationOp;
+use use_cases::subscriber_locations::list_subscribed_locations::{
+    ListSubscribedLocationsOp, LocationWithId,
+};
+
 pub mod get_affected_subscribers_from_import;
 pub mod list_subscribed_locations;
 pub mod subscribe;
@@ -22,5 +26,21 @@ impl DeleteSubscribedLocationOp for LocationSubscriptionSubSystem {
             location_id,
         )
         .await
+    }
+}
+
+#[async_trait]
+impl ListSubscribedLocationsOp for LocationSubscriptionSubSystem {
+    async fn list(&self, id: SubscriberId) -> anyhow::Result<Vec<LocationWithId>> {
+        let list = list_subscribed_locations::ListSubscribedLocationsInteractor::list_subscribed_locations(id).await?;
+
+        Ok(list
+            .into_iter()
+            .map(|l| LocationWithId {
+                id: l.id,
+                name: l.name.to_string(),
+                address: l.address,
+            })
+            .collect())
     }
 }
