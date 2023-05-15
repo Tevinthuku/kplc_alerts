@@ -1,0 +1,23 @@
+{
+  "db": "PostgreSQL",
+  "6ba4a55e12e4c33b26834d3d5c15347356ea21dc881e8e0fee79c304bc143dff": {
+    "describe": {
+      "columns": [
+        {
+          "name": "value: Json<LocationSearchApiResponse>",
+          "ordinal": 0,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            SELECT value as \"value: Json<LocationSearchApiResponse>\" FROM location.location_search_cache WHERE key = $1\n            "
+  }
+}
