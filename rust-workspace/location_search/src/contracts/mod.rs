@@ -1,1 +1,1 @@
-mod text_search;
+pub mod text_search;

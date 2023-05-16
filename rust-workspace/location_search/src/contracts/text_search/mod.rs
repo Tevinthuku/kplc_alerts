@@ -3,7 +3,7 @@ use shared_kernel::{non_empty_string, string_key};
 
 mod db_access;
 
-struct TextSearcher;
+pub struct TextSearcher;
 
 impl TextSearcher {
     pub fn new() -> Self {

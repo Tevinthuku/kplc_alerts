@@ -1,3 +1,3 @@
 mod config;
-mod contracts;
+pub mod contracts;
 mod db_access;
