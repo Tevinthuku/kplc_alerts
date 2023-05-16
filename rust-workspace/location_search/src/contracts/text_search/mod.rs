@@ -1,5 +1,5 @@
 use crate::contracts::text_search::db_access::TextSearchDbAccess;
-use shared_kernel::{non_empty_string, string_key};
+use shared_kernel::{string_key};
 
 mod db_access;
 
@@ -32,7 +32,7 @@ pub struct LocationDetails {
 pub(crate) mod search {
     use crate::config::SETTINGS_CONFIG;
     use crate::contracts::text_search::db_access::TextSearchDbAccess;
-    use crate::contracts::text_search::{ExternalLocationId, LocationDetails};
+    use crate::contracts::text_search::{LocationDetails};
     use anyhow::{anyhow, Context};
     use secrecy::ExposeSecret;
     use serde::Deserialize;
