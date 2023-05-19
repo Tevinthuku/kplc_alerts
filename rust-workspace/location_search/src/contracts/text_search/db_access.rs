@@ -80,8 +80,10 @@ impl TextSearchDbAccess {
         let api_response =
             serde_json::to_string(&response).context("Failed to convert api_response to string")?;
 
-        let api_response = serde_json::from_str(&api_response)
-            .context("Failed to convert api_response to JSON value")?;
+        let api_response_as_json: serde_json::Value = serde_json::from_str(&api_response)
+            .with_context(|| {
+                format!("Failed to convert api_response to JSON value {api_response}")
+            })?;
 
         let pool = self.db.pool().await;
         let _ = sqlx::query!(
@@ -91,7 +93,7 @@ impl TextSearchDbAccess {
             DO UPDATE SET value = EXCLUDED.value
             "#,
             key.as_str(),
-            Json(api_response) as _
+            Json(api_response_as_json) as _
         )
         .execute(pool.as_ref())
         .await
