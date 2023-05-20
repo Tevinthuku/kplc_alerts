@@ -150,6 +150,8 @@ impl SaveAndSearchLocations {
             db_access: DbAccess,
         }
     }
+
+    #[tracing::instrument(err, skip(self), level = "info")]
     pub async fn save_main_location(&self, location: LocationInput) -> anyhow::Result<LocationId> {
         let pool = self.db_access.pool().await;
         let external_id = location.external_id.as_ref();
@@ -184,6 +186,7 @@ impl SaveAndSearchLocations {
         Ok(record.id.into())
     }
 
+    #[tracing::instrument(err, skip(self), level = "info")]
     pub async fn affected_location(
         &self,
         location_id: LocationId,
@@ -251,6 +254,7 @@ impl SaveAndSearchLocations {
         Ok(result)
     }
 
+    #[tracing::instrument(err, skip(self), level = "info")]
     pub async fn get_affected_locations_from_regions(
         &self,
         url: Url,
@@ -287,6 +291,7 @@ impl SaveAndSearchLocations {
         Ok(result.into_iter().flatten().collect_vec())
     }
 
+    #[tracing::instrument(err, skip(self), level = "info")]
     pub async fn was_nearby_location_already_saved(
         &self,
         location_id: LocationId,
@@ -307,6 +312,7 @@ impl SaveAndSearchLocations {
         Ok(db_results.map(|record| record.id.into()))
     }
 
+    #[tracing::instrument(err, skip(self), level = "info")]
     pub(super) async fn save_nearby_locations(
         &self,
         url: Url,
