@@ -15,6 +15,7 @@ use serde::Deserialize;
 use shared_kernel::uuid_key;
 use sqlx::types::chrono::{DateTime, Utc};
 use std::fmt::{Display, Formatter};
+use tracing::error;
 use url::Url;
 use uuid::Uuid;
 
@@ -283,8 +284,7 @@ impl SaveAndSearchLocations {
                     result.push(area_results);
                 }
                 Err(e) => {
-                    // TODO: Refactor to tracing block
-                    println!("Error searching locations {e:?}");
+                    error!("Error searching locations {e:?}", e = e)
                 }
             }
         }
