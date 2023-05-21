@@ -55,7 +55,7 @@ impl WebPageReaderDbAccess {
         let pool = self.db.pool().await;
         let records = sqlx::query!(
             "
-                SELECT source_url FROM location.manually_added_sources
+                SELECT source_url FROM manually_added_sources
             "
         )
         .fetch_all(pool.as_ref())
