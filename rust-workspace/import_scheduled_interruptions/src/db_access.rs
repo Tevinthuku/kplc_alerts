@@ -6,9 +6,6 @@ use lazy_static::lazy_static;
 
 use sqlx_postgres::pool_manager::{PoolManager, PoolWrapper};
 
-
-
-
 lazy_static! {
     static ref POOL_MANAGER: AsyncOnce<PoolManager> = AsyncOnce::new(async {
         PoolManager::new(

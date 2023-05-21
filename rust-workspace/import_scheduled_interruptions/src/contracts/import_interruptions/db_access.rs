@@ -1,9 +1,6 @@
-
 use crate::db_access::DbAccess;
 use anyhow::Context;
-use entities::power_interruptions::location::{ImportInput};
-
-
+use entities::power_interruptions::location::ImportInput;
 
 pub struct ImportPowerInterruptionsDbAccess {
     pub(crate) db: DbAccess,

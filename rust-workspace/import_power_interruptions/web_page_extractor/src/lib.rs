@@ -1,5 +1,5 @@
-pub mod pdf_extractor;
 mod links_to_extract;
+pub mod pdf_extractor;
 
 use anyhow::Context;
 use async_trait::async_trait;
