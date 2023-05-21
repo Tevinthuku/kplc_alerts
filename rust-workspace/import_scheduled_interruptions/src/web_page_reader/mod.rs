@@ -20,6 +20,7 @@ mod get_pdf_links {
     use crate::web_page_reader::db_access::WebPageReaderDbAccess;
     use anyhow::Context;
     use chrono::{Datelike, Utc};
+    use itertools::Itertools;
     use lazy_static::lazy_static;
     use regex::Regex;
     use shared_kernel::http_client::HttpClient;
@@ -27,7 +28,12 @@ mod get_pdf_links {
 
     pub(super) async fn execute(db: &WebPageReaderDbAccess) -> anyhow::Result<Vec<Url>> {
         let pdf_links = get_pdf_links_from_web_page().await?;
-
+        let manually_added_links = db.get_manually_added_source_files().await?;
+        let pdf_links = pdf_links
+            .into_iter()
+            .chain(manually_added_links.into_iter())
+            .unique()
+            .collect();
         db.return_unprocessed_files(pdf_links).await
     }
 

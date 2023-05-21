@@ -207,6 +207,24 @@
     },
     "query": "\n            INSERT INTO location.line_schedule(line_id, schedule_id)\n            SELECT * FROM UNNEST($1::uuid[], $2::uuid[]) ON CONFLICT DO NOTHING\n            "
   },
+  "eb4a0768defeecfe693b4a1ccdc162ab7f9a60e2a3ed25b3084b36cf00e42233": {
+    "describe": {
+      "columns": [
+        {
+          "name": "source_url",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\n                SELECT source_url FROM location.manually_added_sources\n            "
+  },
   "f3ac55e2b438d6ca309cb1fe35a2ebc56ecd131c6985e2090391c4e9285519f3": {
     "describe": {
       "columns": [],
