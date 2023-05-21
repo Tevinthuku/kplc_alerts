@@ -309,7 +309,7 @@ impl<'a> Iterator for ScannerIter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::scanner::{is_alphanumeric, is_whitespace, scan};
+    use crate::pdf_reader::content_extractor::scanner::{is_alphanumeric, is_whitespace, scan};
 
     #[test]
     fn test_alphanumeric() {

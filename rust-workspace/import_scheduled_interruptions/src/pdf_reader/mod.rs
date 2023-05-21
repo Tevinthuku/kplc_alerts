@@ -1,6 +1,6 @@
 mod content_extractor;
 
-use anyhow::{anyhow, bail};
+use anyhow::{bail};
 use entities::power_interruptions::location::Region;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;

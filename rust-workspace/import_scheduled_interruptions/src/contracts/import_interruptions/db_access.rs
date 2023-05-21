@@ -1,9 +1,9 @@
-use crate::contracts::import_interruptions::db_access::counties::DbCounty;
+
 use crate::db_access::DbAccess;
 use anyhow::Context;
-use entities::power_interruptions::location::{ImportInput, Region};
-use sqlx_postgres::pool_manager::PoolWrapper;
-use uuid::Uuid;
+use entities::power_interruptions::location::{ImportInput};
+
+
 
 pub struct ImportPowerInterruptionsDbAccess {
     pub(crate) db: DbAccess,
