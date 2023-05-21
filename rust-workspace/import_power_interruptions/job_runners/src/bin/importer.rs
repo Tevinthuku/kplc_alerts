@@ -1,5 +1,5 @@
-use async_trait::async_trait;
-use entities::power_interruptions::location::FutureOrCurrentNairobiTZDateTime;
+
+
 use import_scheduled_interruptions::contracts::import_interruptions::ImportInterruptions;
 use itertools::Itertools;
 use location_subscription::contracts::get_affected_subscribers_from_import::AffectedSubscribersInteractor;
@@ -12,12 +12,12 @@ use notifications::contracts::send_notification::LocationMatchedAndLineSchedule 
 use notifications::contracts::send_notification::{
     AffectedSubscriberWithLocations, LineWithScheduledInterruptionTime,
 };
-use pdf_text_parser::PDFContentExtractor;
+
 use producer::producer::Producer;
-use sqlx_postgres::repository::Repository;
-use std::sync::Arc;
-use use_cases::actor::{Actor, Permissions, SubscriberExternalId};
-use web_page_extractor::{pdf_extractor::PdfExtractorImpl, WebPageExtractor};
+
+
+
+
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
