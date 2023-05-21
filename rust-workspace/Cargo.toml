@@ -9,7 +9,8 @@ members = [
     "background_workers/*",
     "location_subscription",
     "location_search",
-    "notifications"
+    "notifications",
+    "import_scheduled_interruptions"
 ]
 
 [profile.dev.package.sqlx-macros]
