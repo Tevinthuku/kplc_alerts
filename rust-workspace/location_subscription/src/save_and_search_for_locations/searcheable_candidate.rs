@@ -5,7 +5,7 @@ use regex::Captures;
 use regex::Regex;
 use regex::RegexBuilder;
 use std::collections::HashMap;
-use std::fmt::{format, Display, Formatter};
+use std::fmt::{Display, Formatter};
 
 lazy_static! {
     static ref ACRONYM_MAP: HashMap<String, &'static str> = HashMap::from([
@@ -72,11 +72,12 @@ impl AsRef<str> for NonAcronymString {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 struct SearcheableCandidateInner(Vec<NonAcronymString>);
 
 impl SearcheableCandidateInner {
     fn new(candidate: String) -> Self {
-        let split = candidate.split_once("&");
+        let split = candidate.split_once('&');
         let candidates = if let Some((before, after)) = split {
             let mut result = vec![];
             let before = before.trim();
@@ -88,7 +89,7 @@ impl SearcheableCandidateInner {
             result.extend(Self::split_5(before, after));
             result
                 .into_iter()
-                .map(|data| NonAcronymString::from(data.trim().split(" ").unique().join(" ")))
+                .map(|data| NonAcronymString::from(data.trim().split(' ').unique().join(" ")))
                 .unique()
                 .collect_vec()
         } else {
@@ -98,19 +99,12 @@ impl SearcheableCandidateInner {
         SearcheableCandidateInner(candidates)
     }
 
-    fn into_inner(self) -> Vec<String> {
-        self.0
-            .into_iter()
-            .map(|data| data.to_string())
-            .collect_vec()
-    }
-
     // Split Shell & Total Petro Stns Kiambu Road to vec![Shell Petro Stns Kiambu Road, Total Petro Stns Kiambu Road]
     fn split_1(before_amperstand: &str, after_amperstand: &str) -> Vec<String> {
-        let after_as_list = after_amperstand.split(" ").collect_vec();
+        let after_as_list = after_amperstand.split(' ').collect_vec();
         // If after_amperstand is only one word, then this split method isnt applicable.
         // eg: Makueni boys & girls
-        if after_as_list.len() == 1 || before_amperstand.split(" ").count() > 1 {
+        if after_as_list.len() == 1 || before_amperstand.split(' ').count() > 1 {
             return Default::default();
         }
         let data = after_as_list.split_first();
@@ -129,7 +123,7 @@ impl SearcheableCandidateInner {
     // Split Kawangware DC & DO Offices to vec![Kawangware DC Offices, Kawangware DO Offices]
     fn split_2(before_amperstand: &str, after_amperstand: &str) -> Vec<String> {
         let mut result = vec![];
-        let before_as_list = before_amperstand.split(" ").collect_vec();
+        let before_as_list = before_amperstand.split(' ').collect_vec();
         // If before_amperstand is only one word, then this split method isnt applicable.
         if before_as_list.len() == 1 {
             return Default::default();
@@ -138,7 +132,7 @@ impl SearcheableCandidateInner {
             result.push(format!("{} {}", first, after_amperstand));
         }
 
-        let after_as_list = after_amperstand.split(" ").collect_vec();
+        let after_as_list = after_amperstand.split(' ').collect_vec();
         // If after_amperstand is only one word, then this split method isnt applicable.
         if after_as_list.len() == 1 {
             return Default::default();
@@ -155,12 +149,12 @@ impl SearcheableCandidateInner {
     fn split_3(before_amperstand: &str, after_amperstand: &str) -> Vec<String> {
         // If before_amperstand is only one word, then this split method isnt applicable.
         // eg: 2nd & 3rd Parklands, we will end up with "2nd" as a candidate, which is too general.
-        if before_amperstand.split(" ").count() == 1 {
+        if before_amperstand.split(' ').count() == 1 {
             return Default::default();
         }
         let mut result = vec![before_amperstand.to_string()];
 
-        let before_as_list = before_amperstand.split(" ").collect_vec();
+        let before_as_list = before_amperstand.split(' ').collect_vec();
         if let Some(first) = before_as_list.first() {
             result.push(format!("{} {}", first, after_amperstand));
         }
@@ -170,7 +164,7 @@ impl SearcheableCandidateInner {
 
     // Split St Lwanga Catholic Church & School to vec![St Lwanga Catholic Church, St Lwanga Catholic School]
     fn split_4(before_amperstand: &str, after_amperstand: &str) -> Vec<String> {
-        let before_as_list = before_amperstand.split(" ").collect_vec();
+        let before_as_list = before_amperstand.split(' ').collect_vec();
         // If before_amperstand is only one word, then this split method isnt applicable.
         // eg: 2nd & 3rd Parklands, we will end up with "2nd" as a candidate, which is too general.
         if before_as_list.len() == 1 {
@@ -192,7 +186,7 @@ impl SearcheableCandidateInner {
     fn split_5(before_amperstand: &str, after_amperstand: &str) -> Vec<String> {
         let phrase_without_amperstand = format!("{} {}", before_amperstand, after_amperstand);
         // only return result, if phrase_without_amperstand is two words.
-        if phrase_without_amperstand.split(" ").count() == 2 {
+        if phrase_without_amperstand.split(' ').count() == 2 {
             let result = vec![before_amperstand.to_string(), after_amperstand.to_string()];
 
             return result;
@@ -200,20 +194,27 @@ impl SearcheableCandidateInner {
 
         Default::default()
     }
-}
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub struct SearcheableCandidates(String);
-
-impl ToString for SearcheableCandidates {
-    fn to_string(&self) -> String {
-        self.0.clone()
+    #[cfg(test)]
+    fn into_inner(self) -> Vec<String> {
+        self.0.into_iter().map(|data| data.0).collect_vec()
     }
 }
 
-impl AsRef<str> for SearcheableCandidates {
-    fn as_ref(&self) -> &str {
-        &self.0
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+pub struct SearcheableCandidates(SearcheableCandidateInner);
+
+impl SearcheableCandidates {
+    pub fn into_inner(self) -> Vec<String> {
+        self.0
+             .0
+            .into_iter()
+            .map(|data| data.to_string())
+            .collect_vec()
+    }
+
+    pub fn inner(&self) -> Vec<String> {
+        self.0 .0.iter().map(|data| data.to_string()).collect_vec()
     }
 }
 
@@ -230,6 +231,7 @@ impl SearcheableCandidates {
 impl From<&str> for SearcheableCandidates {
     fn from(value: &str) -> Self {
         let value = value.trim().replace(' ', " <-> ");
+        let value = SearcheableCandidateInner::new(value);
         SearcheableCandidates(value)
     }
 }
@@ -237,7 +239,6 @@ impl From<&str> for SearcheableCandidates {
 #[cfg(test)]
 mod tests {
     use crate::save_and_search_for_locations::searcheable_candidate::SearcheableCandidateInner;
-    use itertools::Itertools;
     use rstest::rstest;
     use std::collections::HashSet;
 
