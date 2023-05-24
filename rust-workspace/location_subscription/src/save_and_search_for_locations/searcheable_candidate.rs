@@ -2,6 +2,9 @@ use entities::power_interruptions::location::AreaName;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Captures;
+use regex::Regex;
+use regex::RegexBuilder;
+use std::collections::HashMap;
 use std::fmt::{format, Display, Formatter};
 
 lazy_static! {
@@ -19,7 +22,11 @@ lazy_static! {
         ("mkt".to_string(), "Market"),
         ("fact".to_string(), "Factory"),
         ("t/fact".to_string(), "Tea Factory"),
+        ("t /fact".to_string(), "Tea Factory"),
+        ("t / fact".to_string(), "Tea Factory"),
         ("c/fact".to_string(), "Coffee Factory"),
+        ("c /fact".to_string(), "Coffee Factory"),
+        ("c / fact".to_string(), "Coffee Factory"),
         ("petro".to_string(), "Petrol"),
     ]);
     static ref REGEX_STR: String = {
@@ -32,7 +39,7 @@ lazy_static! {
         .expect("ACRONYMS_MATCHER to have been built successfully");
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct NonAcronymString(String);
 
 impl From<String> for NonAcronymString {
@@ -92,7 +99,10 @@ impl SearcheableCandidateInner {
     }
 
     fn into_inner(self) -> Vec<String> {
-        self.0.into_iter().map(ToString::to_string).collect_vec()
+        self.0
+            .into_iter()
+            .map(|data| data.to_string())
+            .collect_vec()
     }
 
     // Split Shell & Total Petro Stns Kiambu Road to vec![Shell Petro Stns Kiambu Road, Total Petro Stns Kiambu Road]
@@ -236,9 +246,9 @@ mod tests {
     #[case("GSU & AP", vec!["GSU", "AP"])]
     #[case("Makueni Boys & Girls", vec!["Makueni Boys", "Makueni Girls"])]
     #[case("Kabare Market & Girls High School", vec!["Kabare Market", "Kabare Girls High School"])]
-    #[case("Kimunye T /Fact & Market", vec!["Kimunye T /Fact", "Kimunye Market"])]
+    #[case("Kimunye T /Fact & Market", vec!["Kimunye Tea Factory", "Kimunye Market"])]
     #[case("St Lwanga Catholic Church & School", vec!["St Lwanga Catholic Church", "St Lwanga Catholic School"])]
-    #[case("Shell & Total Petro Stns Kiambu Road", vec!["Shell Petro Stns Kiambu Road", "Total Petro Stns Kiambu Road"])]
+    #[case("Shell & Total Petro Stns Kiambu Road", vec!["Shell Petrol Station Kiambu Road", "Total Petrol Station Kiambu Road"])]
     #[case("Kawangware DC & DO Offices", vec!["Kawangware DC Offices", "Kawangware DO Offices"])]
     fn test_searcheable_candidate_inner(#[case] input: &str, #[case] expected: Vec<&str>) {
         let candidate = SearcheableCandidateInner::new(input.to_string());
