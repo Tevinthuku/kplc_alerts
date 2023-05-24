@@ -1,3 +1,5 @@
+mod searcheable_candidate;
+
 use crate::data_transfer::LineWithScheduledInterruptionTime;
 use crate::db_access::DbAccess;
 use anyhow::{anyhow, Context};
@@ -11,6 +13,7 @@ use std::collections::HashMap;
 use crate::contracts::get_affected_subscribers_from_import::Region;
 use entities::power_interruptions::location::{AreaName, NairobiTZDateTime, TimeFrame};
 use futures::{stream::FuturesUnordered, StreamExt};
+use searcheable_candidate::SearcheableCandidates;
 use serde::Deserialize;
 use shared_kernel::uuid_key;
 use sqlx::types::chrono::{DateTime, Utc};
@@ -30,12 +33,14 @@ lazy_static! {
         ("schs".to_string(), "Schools"),
         ("sec".to_string(), "Secondary"),
         ("stn".to_string(), "Station"),
+        ("stns".to_string(), "Station"),
         ("apts".to_string(), "Apartments"),
         ("hqtrs".to_string(), "Headquaters"),
         ("mkt".to_string(), "Market"),
         ("fact".to_string(), "Factory"),
         ("t/fact".to_string(), "Tea Factory"),
-        ("c/fact".to_string(), "Coffee Factory")
+        ("c/fact".to_string(), "Coffee Factory"),
+        ("petro".to_string(), "Petrol"),
     ]);
     static ref REGEX_STR: String = {
         let keys = ACRONYM_MAP.keys().join("|");
@@ -77,41 +82,6 @@ impl Display for NonAcronymString {
 impl AsRef<str> for NonAcronymString {
     fn as_ref(&self) -> &str {
         &self.0
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub struct SearcheableCandidate(String);
-
-impl ToString for SearcheableCandidate {
-    fn to_string(&self) -> String {
-        self.0.clone()
-    }
-}
-
-impl AsRef<str> for SearcheableCandidate {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
-impl SearcheableCandidate {
-    pub fn from_area_name(area: &AreaName) -> Vec<Self> {
-        area.as_ref()
-            .split(',')
-            .map(SearcheableCandidate::from)
-            .collect_vec()
-    }
-
-    // pub fn original_value(&self) -> String {
-    //     self.0.replace(" <-> ", " ")
-    // }
-}
-
-impl From<&str> for SearcheableCandidate {
-    fn from(value: &str) -> Self {
-        let value = value.trim().replace(' ', " <-> ");
-        SearcheableCandidate(value)
     }
 }
 
@@ -428,7 +398,7 @@ impl<'a> BareAffectedLinesMapping<'a> {
                     (&line.line, &line.time_frame),
                     (&line.line, &line.url),
                     (
-                        SearcheableCandidate::from(line.line.as_ref()).to_string(),
+                        SearcheableCandidates::from(line.line.as_ref()).to_string(),
                         &line.line,
                     ),
                 )
@@ -501,7 +471,7 @@ mod directly_affected_location {
     use itertools::Itertools;
     use uuid::Uuid;
 
-    use super::SearcheableCandidate;
+    use crate::save_and_search_for_locations::searcheable_candidate::SearcheableCandidates;
 
     #[derive(sqlx::FromRow, Debug)]
     struct DbLocationSearchResults {
@@ -535,7 +505,7 @@ mod directly_affected_location {
     ) -> anyhow::Result<Option<AffectedLocation>> {
         let searcheable_candidates = affected_lines
             .iter()
-            .map(|line| SearcheableCandidate::from(line.line.as_ref()).to_string())
+            .map(|line| SearcheableCandidates::from(line.line.as_ref()).to_string())
             .collect_vec();
         let primary_location =
             get_primary_location_search_result(location_id, area_name, db, searcheable_candidates)
@@ -561,7 +531,7 @@ mod directly_affected_location {
         let mut primary_location: Option<DbLocationSearchResults> = None;
         let pool = db.pool().await;
         for (searcheable_candidates, location_id, searcheable_area) in
-            SearcheableCandidate::from_area_name(area_name)
+            SearcheableCandidates::from_area_name(area_name)
                 .into_iter()
                 .map(|area_candidate| {
                     (
@@ -592,10 +562,11 @@ mod directly_affected_location {
 }
 
 mod potentially_affected_location {
+    use crate::db_access::DbAccess;
+    use crate::save_and_search_for_locations::searcheable_candidate::SearcheableCandidates;
     use crate::save_and_search_for_locations::{
         AffectedLocation, AffectedLocationGenerator, BareAffectedLine, NearbyLocationId,
     };
-    use crate::{db_access::DbAccess, save_and_search_for_locations::SearcheableCandidate};
     use anyhow::Context;
     use entities::locations::LocationId;
     use itertools::Itertools;
@@ -625,7 +596,7 @@ mod potentially_affected_location {
 
         let searcheable_candidates = bare_affected_lines
             .iter()
-            .map(|line| SearcheableCandidate::from(line.line.as_ref()))
+            .map(|line| SearcheableCandidates::from(line.line.as_ref()))
             .map(|candidate| candidate.to_string())
             .collect_vec();
 
@@ -690,7 +661,7 @@ mod affected_locations_in_an_area {
     use url::Url;
     use uuid::Uuid;
 
-    use super::SearcheableCandidate;
+    use crate::save_and_search_for_locations::searcheable_candidate::SearcheableCandidates;
 
     #[derive(sqlx::FromRow)]
     struct DbLocationSearchResults {
@@ -729,7 +700,7 @@ mod affected_locations_in_an_area {
             .iter()
             .map(|candidate| {
                 (
-                    SearcheableCandidate::from(candidate.as_ref()),
+                    SearcheableCandidates::from(candidate.as_ref()),
                     candidate.as_str(),
                 )
             })
@@ -744,7 +715,7 @@ mod affected_locations_in_an_area {
             .collect_vec();
 
         let searcheable_area_names =
-            SearcheableCandidate::from_area_name(&AreaName::new(area.name.clone()));
+            SearcheableCandidates::from_area_name(&AreaName::new(area.name.clone()));
 
         let directly_affected_locations = directly_affected_locations(
             db,
@@ -774,11 +745,11 @@ mod affected_locations_in_an_area {
 
     async fn directly_affected_locations(
         db: &DbAccess,
-        searcheable_area_names: &[SearcheableCandidate],
+        searcheable_area_names: &[SearcheableCandidates],
         searcheable_candidates: &[&str],
         time_frame: TimeFrame,
         mapping_of_searcheable_candidate_to_original_candidate: &HashMap<
-            SearcheableCandidate,
+            SearcheableCandidates,
             &str,
         >,
         source: Url,
@@ -835,11 +806,11 @@ mod affected_locations_in_an_area {
 
     async fn potentially_affected_locations(
         db: &DbAccess,
-        searcheable_area_names: &[SearcheableCandidate],
+        searcheable_area_names: &[SearcheableCandidates],
         searcheable_candidates: &[&str],
         time_frame: TimeFrame,
         mapping_of_searcheable_candidate_to_original_candidate: &HashMap<
-            SearcheableCandidate,
+            SearcheableCandidates,
             &str,
         >,
         source: Url,
