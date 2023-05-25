@@ -36,7 +36,7 @@ function App() {
           <RouterProvider router={router} />
           <SnackBar
             open={isErrorSnackBarOpen}
-            content={"Something went wrong"}
+            content={"Something went wrong. Please try again."}
             close={closeErrorSnackBar}
           />
         </SWRConfig>
