@@ -1,17 +1,13 @@
 use opentelemetry::global;
-use opentelemetry::sdk::propagation::BaggagePropagator;
-use opentelemetry::sdk::propagation::TextMapCompositePropagator;
-use opentelemetry::sdk::propagation::TraceContextPropagator;
-use opentelemetry::sdk::trace;
+
 use opentelemetry::sdk::trace::Tracer;
-use opentelemetry::sdk::Resource;
+
 use opentelemetry::trace::TraceError;
-use opentelemetry::KeyValue;
-use opentelemetry_otlp::{ExportConfig, WithExportConfig};
+
+use opentelemetry_otlp::WithExportConfig;
 use std::collections::HashMap;
 
 use tracing_subscriber::prelude::*;
-use tracing_subscriber::Registry;
 
 fn init_tracer() -> Result<Tracer, TraceError> {
     let key = std::env::var("HONEY_COMB_TEAM_KEY").unwrap();
